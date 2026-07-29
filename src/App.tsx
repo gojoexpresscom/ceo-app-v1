@@ -94,7 +94,7 @@ export default function App() {
       subscription.unsubscribe();
       clearInterval(keepAliveInterval);
     };
-  }, [])]
+  }, [])
   useEffect(() => {
     let mounted = true;
     (async () => {
