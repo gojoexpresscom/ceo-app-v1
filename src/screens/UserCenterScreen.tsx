@@ -3,7 +3,7 @@ import {
   ArrowLeft, Moon, Globe, Copy, Check, ChevronRight, UserCircle, BadgeCheck,
   Mail, Smartphone, KeyRound, Lock, Shield, Bell, Clock, Wallet,
   Sun, ThumbsUp, HelpCircle, MessageSquare, Info, Trash2, Star,
-  LogOut, Link, Users, Percent, Send, TrendingUp, AlertCircle,
+  LogOut, Link, Users, Percent, Send, TrendingUp,
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import KYCModal from '@/components/modals/KYCModal';
@@ -69,7 +69,7 @@ export default function UserCenterScreen({ profile, userId, onBack, onLogout, on
   const [appLock, setAppLock] = useState(profile.app_lock_enabled || false);
   const [secureTx, setSecureTx] = useState(profile.secure_tx_approval || false);
   const [withdrawalLock, setWithdrawalLock] = useState(!!profile.withdrawal_lock_until && new Date(profile.withdrawal_lock_until) > new Date());
-  const [savingPref, setSavingPref] = useState(false);
+  const [, setSavingPref] = useState(false);
 
   // Check withdrawal lock periodically
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function UserCenterScreen({ profile, userId, onBack, onLogout, on
     if (alwaysOn && 'wakeLock' in navigator) {
       (async () => {
         try {
-          const lock = await (navigator as any).wakeLock.request('screen');
+          const lock = await (navigator as Record<string, unknown>).wakeLock.request('screen') as WakeLockSentinel;
           setWakeLock(lock);
         } catch { /* user agent doesn't support or denied */ }
       })();
@@ -93,7 +93,7 @@ export default function UserCenterScreen({ profile, userId, onBack, onLogout, on
       setWakeLock(null);
     }
     return () => { if (wakeLock) wakeLock.release(); };
-  }, [alwaysOn]);
+  }, [alwaysOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const copyUID = () => {
     navigator.clipboard.writeText(profile.uid).catch(() => {});
@@ -311,7 +311,7 @@ export default function UserCenterScreen({ profile, userId, onBack, onLogout, on
             <SettingRow icon={Link} label="Link Account" onPress={() => setModal('linkAccount')}
               rightNode={<div className="flex items-center gap-1.5">
                 {linkedChannels.length > 0 ? (
-                  (linkedChannels as any[]).map(ch => (
+                  (linkedChannels as Array<{ name: string; color: string }>).map(ch => (
                     <div key={ch.name} className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: ch.color }}>
                       {ch.name === 'Telegram' && <Send className="w-3 h-3 text-white" />}
                       {ch.name === 'X' && <span className="text-white text-[8px] font-bold">X</span>}

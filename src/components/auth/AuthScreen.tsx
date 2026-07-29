@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Fingerprint, ShieldCheck, KeyRound, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 

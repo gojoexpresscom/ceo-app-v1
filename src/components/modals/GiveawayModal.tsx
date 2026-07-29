@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Gift, Send, Users, AlertCircle, Check } from 'lucide-react';
+import { X, Gift, Send, AlertCircle, Check } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 
 type Props = { userId: string; profile: Profile; onClose: () => void; onProfileUpdate: (u: Partial<Profile>) => void };
@@ -16,7 +16,7 @@ export default function GiveawayModal({ userId, profile, onClose, onProfileUpdat
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('internal_transfers').select('*').eq('sender_id', userId).order('created_at', { ascending: false }).limit(10);
-      if (data) setTransfers(data as any[]);
+      if (data) setTransfers(data as Array<{ recipient_uid: string; amount: number; created_at: string }>);
     })();
   }, [userId]);
 

@@ -8,7 +8,6 @@ type Passkey = { id: string; name: string; created_at: string };
 
 export default function PasskeysModal({ userId, email, onClose, onUpdate }: Props) {
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
-  const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');

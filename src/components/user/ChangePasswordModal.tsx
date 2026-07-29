@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, KeyRound, Mail, AlertCircle, Check, Eye, EyeOff, Send } from 'lucide-react';
+import { X, Mail, AlertCircle, Check, Eye, EyeOff, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Props = { userId: string; email: string; onClose: () => void };

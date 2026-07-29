@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Star, MoreHorizontal, TrendingUp, TrendingDown,
-  RefreshCw, ChevronDown,
+  ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import CandlestickChart from '@/components/charts/CandlestickChart';
@@ -57,7 +57,7 @@ export default function TradingScreen({
         `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`)}`,
       ];
-      let d: any = null;
+      let d: { lastPrice: string; priceChangePercent: string; highPrice: string; lowPrice: string; quoteVolume: string } | null = null;
       for (const url of endpoints) {
         try {
           const res = await fetch(url);
@@ -73,7 +73,7 @@ export default function TradingScreen({
         vol: (parseFloat(d.quoteVolume) / 1e6).toFixed(1) + 'M',
       });
       if (orderType === 'Market') setPrice(parseFloat(d.lastPrice).toFixed(2));
-    } catch {}
+    } catch { /* ignore */ }
   }, [binanceSymbol, orderType]);
 
   const fetchOrderBook = useCallback(async () => {
@@ -82,7 +82,7 @@ export default function TradingScreen({
         `https://api.binance.com/api/v3/depth?symbol=${binanceSymbol}&limit=8`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.binance.com/api/v3/depth?symbol=${binanceSymbol}&limit=8`)}`,
       ];
-      let d: any = null;
+      let d: { lastPrice: string; priceChangePercent: string; highPrice: string; lowPrice: string; quoteVolume: string } | null = null;
       for (const url of endpoints) {
         try {
           const res = await fetch(url);
@@ -91,7 +91,7 @@ export default function TradingScreen({
       }
       if (!d) return;
       setOrderBook({ asks: d.asks.slice(0, 8), bids: d.bids.slice(0, 8) });
-    } catch {}
+    } catch { /* ignore */ }
   }, [binanceSymbol]);
 
   useEffect(() => {

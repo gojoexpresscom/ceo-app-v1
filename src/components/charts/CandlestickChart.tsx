@@ -32,9 +32,9 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const ma7Ref = useRef<ISeriesApi<'Line'> | null>(null);
   const ma14Ref = useRef<ISeriesApi<'Line'> | null>(null);
-  const priceLinesRef = useRef<Map<string, any>>(new Map());
+  const priceLinesRef = useRef<Map<string, unknown>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [showMA, setShowMA] = useState(true);
+  const [showMA] = useState(true);
   const [activeTool, setActiveTool] = useState<Tool>('none');
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [pendingDraw, setPendingDraw] = useState<Partial<Drawing> | null>(null);
@@ -61,7 +61,7 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
         apiUrl,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
       ];
-      let raw: any = null;
+      let raw: unknown[] | null = null;
       for (const url of endpoints) {
         try {
           const res = await fetch(url);
@@ -201,7 +201,7 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
 
     // Clear existing price lines
     priceLinesRef.current.forEach((pl) => {
-      try { candleSeriesRef.current?.removePriceLine(pl); } catch {}
+      try { candleSeriesRef.current?.removePriceLine(pl as never); } catch { /* ignore */ }
     });
     priceLinesRef.current.clear();
 

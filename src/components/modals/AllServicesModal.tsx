@@ -1,4 +1,4 @@
-import { X, TrendingUp, Wallet, Shield, Gift, Settings, HelpCircle, ChevronRight, Users, Key, Globe } from 'lucide-react';
+import { X, TrendingUp, Wallet, Shield, Gift, Settings, HelpCircle, Users, Key, Globe } from 'lucide-react';
 
 type Props = { onClose: () => void; onNavigate: (screen: string) => void };
 

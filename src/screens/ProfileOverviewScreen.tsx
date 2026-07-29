@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
   ArrowLeft, Copy, Check, ChevronRight, Headphones, Gift, Users,
-  ChevronDown, Wallet, TrendingUp, Puzzle, Award, Grid3x3, Info,
+  ChevronDown, Wallet, TrendingUp, Puzzle, Grid3x3, Info,
 } from 'lucide-react';
 import type { Profile } from '@/lib/supabase';
-import { SUPPORT_WHATSAPP, TELEGRAM_COMMUNITY } from '@/config/constants';
+import { TELEGRAM_COMMUNITY } from '@/config/constants';
 import InviteFriendsModal from '@/components/modals/InviteFriendsModal';
 import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
@@ -30,7 +30,7 @@ type Props = {
   onProfileUpdate: (updates: Partial<Profile>) => void;
 };
 
-export default function ProfileOverviewScreen({ profile, userId, onBack, onOpenUserCenter, onOpenDeposit, onNavigate, onLogout, onProfileUpdate }: Props) {
+export default function ProfileOverviewScreen({ profile, userId, onBack, onOpenUserCenter, onOpenDeposit, onNavigate, onProfileUpdate }: Props) {
   const [copied, setCopied] = useState(false);
   const [modal, setModal] = useState<'invite' | 'rewards' | 'giveaway' | 'allServices' | 'about' | null>(null);
 

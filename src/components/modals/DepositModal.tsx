@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ArrowLeft, Bitcoin, Coins, User, Copy, Check, QrCode } from 'lucide-react';
+import { X, ArrowLeft, Bitcoin, Coins, User, Copy, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Profile } from '@/lib/supabase';
 
@@ -12,7 +12,7 @@ type Props = {
   profile: Profile;
 };
 
-export default function DepositModal({ onClose, onDepositCrypto, onP2P, onBuyFiat, onReceiveInternal, profile }: Props) {
+export default function DepositModal({ onClose, onDepositCrypto, onP2P, onBuyFiat, profile }: Props) {
   const [view, setView] = useState<'menu' | 'receive'>('menu');
   const [copied, setCopied] = useState(false);
 

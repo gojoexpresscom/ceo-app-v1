@@ -1,0 +1,37 @@
+
+/tmp/cc-agent/69354958/project/src/components/modals/DepositCryptoModal.tsx
+  30:6  warning  React Hook useEffect has a missing dependency: 'loadAddress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/tmp/cc-agent/69354958/project/src/components/modals/PlatformAlert.tsx
+  15:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  19:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  26:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/tmp/cc-agent/69354958/project/src/screens/P2PScreen.tsx
+    5:40  error    'Eye' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+  115:10  error    'tradeComplete' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+  206:6   warning  React Hook useEffect has a missing dependency: 'loadTradeMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  342:9   error    'aiFlags' is never reassigned. Use 'const' instead                                                                    prefer-const
+  346:13  error    'ext' is assigned a value but never used                                                                              @typescript-eslint/no-unused-vars
+  534:9   error    'currentFiat' is assigned a value but never used                                                                      @typescript-eslint/no-unused-vars
+  535:9   error    'currentCrypto' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/ProfileOverviewScreen.tsx
+   4:44   error  'Award' is defined but never used             @typescript-eslint/no-unused-vars
+   7:10   error  'SUPPORT_WHATSAPP' is defined but never used  @typescript-eslint/no-unused-vars
+  33:119  error  'onLogout' is defined but never used          @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/ProfileScreen.tsx
+   4:19  error  'Wallet' is defined but never used          @typescript-eslint/no-unused-vars
+   4:27  error  'Coins' is defined but never used           @typescript-eslint/no-unused-vars
+  25:71  error  'onOpenKyc' is defined but never used       @typescript-eslint/no-unused-vars
+  25:82  error  'onOpenSecurity' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/UserCenterScreen.tsx
+   6:51  error    'AlertCircle' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  72:10  error    'savingPref' is assigned a value but never used                                                              @typescript-eslint/no-unused-vars
+  96:6   warning  React Hook useEffect has a missing dependency: 'wakeLock'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 21 problems (15 errors, 6 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

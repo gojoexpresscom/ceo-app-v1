@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, TrendingUp, TrendingDown, Star, ChevronRight, Plus, Gift, Users, Grid3x3, Wallet, Flame, Sparkles, ArrowUp, ArrowDown, Eye, Check } from 'lucide-react';
+import { Search, Star, ChevronRight, Plus, Gift, Users, Grid3x3, Flame, Sparkles, ArrowUp, ArrowDown, Check } from 'lucide-react';
 import CommunityFeed from '@/components/CommunityFeed';
 
 export type Market = {
@@ -23,7 +23,7 @@ type Props = {
   usdtBalance?: number;
   onNavigate?: (screen: string) => void;
   userId?: string;
-  profile?: any;
+  profile?: { kyc_status?: string };
 };
 
 const ALL_SYMBOLS = [
@@ -71,7 +71,7 @@ const ALL_SYMBOLS = [
 
 const CATEGORIES = ['Hot', 'New', 'Gainers', 'Losers', 'Favorites'] as const;
 
-export default function HomeScreen({ onTrade, onConvert, onDeposit, usdtBalance = 0, onNavigate, userId, profile }: Props) {
+export default function HomeScreen({ onTrade, onDeposit, usdtBalance = 0, onNavigate, userId, profile }: Props) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('Hot');
@@ -88,7 +88,7 @@ export default function HomeScreen({ onTrade, onConvert, onDeposit, usdtBalance 
         `https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`)}`,
       ];
-      let data: any[] | null = null;
+      let data: Array<Record<string, string>> | null = null;
       for (const url of endpoints) {
         try {
           const res = await fetch(url);

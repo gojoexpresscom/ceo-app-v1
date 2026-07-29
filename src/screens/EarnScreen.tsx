@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Gift, Lock, TrendingUp, Clock, Check, X,
-  Sparkles, ChevronRight, AlertCircle,
+  ArrowLeft, Gift, Lock, Clock, Check, X,
+  Sparkles, AlertCircle,
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 
@@ -51,7 +51,7 @@ export default function EarnScreen({ userId, profile, onBack, onProfileUpdate }:
     setLoading(false);
   };
 
-  useEffect(() => { loadSubs(); }, [userId]);
+  useEffect(() => { loadSubs(); }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const subscribe = async () => {
     setError('');

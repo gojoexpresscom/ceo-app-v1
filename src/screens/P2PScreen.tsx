@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft, RefreshCw, Shield, ChevronRight, Plus, X, Clock, Check,
   UserCheck, AlertCircle, TrendingUp, Search, Lock, MessageCircle,
-  Send, AlertTriangle, FileImage, Zap, Eye, Banknote,
+  Send, AlertTriangle, FileImage, Zap, Banknote,
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import { platformAlert } from '@/components/modals/PlatformAlert';
@@ -97,7 +97,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showCreateAd, setShowCreateAd] = useState(false);
-  const [activeTrade, setActiveTrade] = useState<any | null>(null);
+  const [activeTrade, setActiveTrade] = useState<Record<string, unknown> | null>(null);
   const [tradeTimer, setTradeTimer] = useState(900); // 15 min
   const [tradeAmount, setTradeAmount] = useState('');
   const [tradeStep, setTradeStep] = useState<'amount' | 'payment' | 'waiting' | 'complete' | 'disputed'>('amount');
@@ -108,11 +108,11 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
-  const [userPaymentMethods, setUserPaymentMethods] = useState<any[]>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<any | null>(null);
+  const [userPaymentMethods, setUserPaymentMethods] = useState<Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<{ payment_type: string; account_name: string; account_number: string; bank_name?: string } | null>(null);
   const [kycFullName, setKycFullName] = useState<string>('');
   const [aiScanning, setAiScanning] = useState(false);
-  const [tradeComplete, setTradeComplete] = useState(false);
+  const [, setTradeComplete] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Create ad form
@@ -172,7 +172,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('p2p_payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-      setUserPaymentMethods((data as any[]) || []);
+      setUserPaymentMethods((data as Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>) || []);
       const { data: profileData } = await supabase.from('profiles').select('kyc_full_name, kyc_status').eq('user_id', userId).maybeSingle();
       setKycFullName(profileData?.kyc_full_name || '');
       // Also check user_verifications for the authoritative status
@@ -203,7 +203,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
   useEffect(() => {
     if (showTradeChat && activeTrade) loadTradeMessages();
-  }, [showTradeChat, activeTrade]);
+  }, [showTradeChat, activeTrade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -216,7 +216,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
     // Subscribe to new messages
     const channel = supabase.channel(`p2p-chat-${activeTrade.trade_id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'p2p_chat', filter: `trade_id=eq.${activeTrade.trade_id}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'p2p_chat', filter: `trade_id=eq.${activeTrade.trade_id}` }, (payload: { new: TradeMessage }) => {
         setTradeMessages(prev => [...prev, payload.new as TradeMessage]);
       })
       .subscribe();
@@ -339,11 +339,10 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     setAiScanning(true);
 
     // AI scan payment proof if uploaded
-    let aiFlags: string[] = [];
+    const aiFlags: string[] = [];
     let aiRiskScore = 0;
 
     if (paymentProof) {
-      const ext = paymentProof.name.slice(paymentProof.name.lastIndexOf('.'));
       const path = `p2p-proof/${userId}/${Date.now()}-${paymentProof.name}`;
       await supabase.storage.from('post-media').upload(path, paymentProof);
       const proofUrl = supabase.storage.from('post-media').getPublicUrl(path).data.publicUrl;
@@ -528,11 +527,9 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
       bank_name: bank,
     });
     const { data } = await supabase.from('p2p_payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    setUserPaymentMethods((data as any[]) || []);
+    setUserPaymentMethods((data as Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>) || []);
   };
 
-  const currentFiat = FIATS.find(f => f.code === fiat)!;
-  const currentCrypto = CRYPTOS.find(c => c.symbol === crypto)!;
   const filtered = ads.filter(a => {
     if (search && !a.merchant_name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;

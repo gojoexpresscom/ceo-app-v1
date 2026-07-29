@@ -12,10 +12,12 @@ export type AlertState = {
 
 let _listener: ((s: AlertState) => void) | null = null;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function showPlatformAlert(type: AlertType, title: string, message: string) {
   _listener?.({ open: true, type, title, message });
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const platformAlert = {
   warn: (title: string, message: string) => showPlatformAlert('warning', title, message),
   success: (title: string, message: string) => showPlatformAlert('success', title, message),
@@ -23,6 +25,7 @@ export const platformAlert = {
   error: (title: string, message: string) => showPlatformAlert('error', title, message),
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePlatformAlert() {
   const [state, setState] = useState<AlertState>({ open: false, type: 'info', title: '', message: '' });
 

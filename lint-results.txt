@@ -1,0 +1,160 @@
+
+/tmp/cc-agent/69354958/project/src/App.tsx
+    1:31  error    'useCallback' is defined but never used                                                                   @typescript-eslint/no-unused-vars
+  486:38  error    'onDeposit' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  644:11  error    'pairMap' is assigned a value but never used                                                              @typescript-eslint/no-unused-vars
+  653:39  error    Unexpected any. Specify a different type                                                                  @typescript-eslint/no-explicit-any
+  662:15  error    Empty block statement                                                                                     no-empty
+  667:6   warning  React Hook useEffect has a missing dependency: 'PAIRS'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  672:7   error    Expected an assignment or function call and instead saw an expression                                     @typescript-eslint/no-unused-expressions
+
+/tmp/cc-agent/69354958/project/src/components/CommunityFeed.tsx
+  148:52  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  158:62  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  160:10  error  'watchStream' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  160:23  error  'setWatchStream' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  161:9   error  'watchVideoRef' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  166:52  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  173:32  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  278:39  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  288:38  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  293:42  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  365:38  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  437:26  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  576:19  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  601:30  error  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/components/auth/AuthScreen.tsx
+  1:20  error  'useEffect' is defined but never used    @typescript-eslint/no-unused-vars
+  1:31  error  'useCallback' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/charts/CandlestickChart.tsx
+   35:44  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   37:18  error  'setShowMA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   64:16  error  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  204:67  error  Empty block statement                           no-empty
+
+/tmp/cc-agent/69354958/project/src/components/modals/AllServicesModal.tsx
+  1:69  error  'ChevronRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/modals/ConvertModal.tsx
+  183:9   error  'getUSDRate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  221:11  error  'netAmount' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/modals/DepositCryptoModal.tsx
+  30:6  warning  React Hook useEffect has a missing dependency: 'loadAddress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/tmp/cc-agent/69354958/project/src/components/modals/DepositModal.tsx
+   2:59  error  'QrCode' is defined but never used             @typescript-eslint/no-unused-vars
+  15:84  error  'onReceiveInternal' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/modals/GiveawayModal.tsx
+   2:25  error  'Users' is defined but never used         @typescript-eslint/no-unused-vars
+  19:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/components/modals/InviteFriendsModal.tsx
+   2:41   error  'Gift' is defined but never used        @typescript-eslint/no-unused-vars
+   2:47   error  'TrendingUp' is defined but never used  @typescript-eslint/no-unused-vars
+  40:116  error  Empty block statement                   no-empty
+
+/tmp/cc-agent/69354958/project/src/components/modals/MenuPanel.tsx
+  6:90  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/components/modals/PlatformAlert.tsx
+  15:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  19:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  26:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/tmp/cc-agent/69354958/project/src/components/modals/RewardsHubModal.tsx
+  17:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/components/user/ChangePasswordModal.tsx
+  2:13  error  'KeyRound' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/user/PasskeysModal.tsx
+  11:10  error  'loading' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  11:19  error  'setLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/user/TOTPSetupModal.tsx
+   2:47  error  'RefreshCw' is defined but never used           @typescript-eslint/no-unused-vars
+  33:10  error  'emailSent' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/user/TrustedDevicesModal.tsx
+  2:40  error  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+  2:53  error  'Check' is defined but never used        @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/user/UserFeedbackModal.tsx
+  2:13  error  'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/components/user/WithdrawalLimitsModal.tsx
+  1:13  error  'TrendingUp' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/EarnScreen.tsx
+   3:26  error    'TrendingUp' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   4:13  error    'ChevronRight' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  54:36  warning  React Hook useEffect has a missing dependency: 'loadSubs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/tmp/cc-agent/69354958/project/src/screens/HomeScreen.tsx
+   2:18   error  'TrendingUp' is defined but never used    @typescript-eslint/no-unused-vars
+   2:30   error  'TrendingDown' is defined but never used  @typescript-eslint/no-unused-vars
+   2:92   error  'Wallet' is defined but never used        @typescript-eslint/no-unused-vars
+   2:137  error  'Eye' is defined but never used           @typescript-eslint/no-unused-vars
+  26:13   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  74:47   error  'onConvert' is defined but never used     @typescript-eslint/no-unused-vars
+  91:17   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/screens/InboxScreen.tsx
+   30:47  error  'profile' is defined but never used       @typescript-eslint/no-unused-vars
+  130:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  170:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/screens/P2PScreen.tsx
+    5:40   error    'Eye' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+  100:50   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  111:64   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  112:70   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  115:10   error    'tradeComplete' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+  175:38   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  206:6    warning  React Hook useEffect has a missing dependency: 'loadTradeMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  219:146  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  342:9    error    'aiFlags' is never reassigned. Use 'const' instead                                                                    prefer-const
+  346:13   error    'ext' is assigned a value but never used                                                                              @typescript-eslint/no-unused-vars
+  531:36   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  534:9    error    'currentFiat' is assigned a value but never used                                                                      @typescript-eslint/no-unused-vars
+  535:9    error    'currentCrypto' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/ProfileOverviewScreen.tsx
+   4:44   error  'Award' is defined but never used             @typescript-eslint/no-unused-vars
+   7:10   error  'SUPPORT_WHATSAPP' is defined but never used  @typescript-eslint/no-unused-vars
+  33:119  error  'onLogout' is defined but never used          @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/ProfileScreen.tsx
+   4:19  error  'Wallet' is defined but never used          @typescript-eslint/no-unused-vars
+   4:27  error  'Coins' is defined but never used           @typescript-eslint/no-unused-vars
+  25:71  error  'onOpenKyc' is defined but never used       @typescript-eslint/no-unused-vars
+  25:82  error  'onOpenSecurity' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/cc-agent/69354958/project/src/screens/TradingScreen.tsx
+   1:44  error  'useRef' is defined but never used        @typescript-eslint/no-unused-vars
+   4:3   error  'RefreshCw' is defined but never used     @typescript-eslint/no-unused-vars
+  60:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:13  error  Empty block statement                     no-empty
+  85:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  94:13  error  Empty block statement                     no-empty
+
+/tmp/cc-agent/69354958/project/src/screens/UserCenterScreen.tsx
+    6:51  error    'AlertCircle' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+   72:10  error    'savingPref' is assigned a value but never used                                                              @typescript-eslint/no-unused-vars
+   87:44  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   96:6   warning  React Hook useEffect has a missing dependency: 'wakeLock'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  314:38  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+/tmp/cc-agent/69354958/project/src/screens/Web3WalletScreen.tsx
+    1:20  error  'useEffect' is defined but never used    @typescript-eslint/no-unused-vars
+    1:31  error  'useCallback' is defined but never used  @typescript-eslint/no-unused-vars
+    4:13  error  'RefreshCw' is defined but never used    @typescript-eslint/no-unused-vars
+  185:52  error  'profile' is defined but never used      @typescript-eslint/no-unused-vars
+
+✖ 100 problems (92 errors, 8 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, Copy, Check, Share2, Gift, TrendingUp } from 'lucide-react';
+import { X, Users, Copy, Check, Share2 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 
 type Props = { userId: string; profile: Profile; onClose: () => void };
@@ -37,7 +37,7 @@ export default function InviteFriendsModal({ userId, profile, onClose }: Props) 
 
   const share = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: 'CEO Exchange', text: 'Join me on CEO Exchange!', url: link }); } catch {}
+      try { await navigator.share({ title: 'CEO Exchange', text: 'Join me on CEO Exchange!', url: link }); } catch { /* ignore */ }
     } else { copyLink(); }
   };
 

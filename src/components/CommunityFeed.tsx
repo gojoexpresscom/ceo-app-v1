@@ -145,7 +145,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
   const [showCreatorMenu, setShowCreatorMenu] = useState(false);
   const [creatorMode, setCreatorMode] = useState<'post' | 'article' | 'video' | null>(null);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [liveSessions, setLiveSessions] = useState<Array<Record<string, unknown>>>([]);
   const [followLoading, setFollowLoading] = useState<string | null>(null);
   const [liveStarting, setLiveStarting] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
@@ -155,22 +155,20 @@ export default function CommunityFeed({ userId, profile }: Props) {
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [liveTitle, setLiveTitle] = useState('');
   const [liveSource, setLiveSource] = useState<'camera' | 'screen' | null>(null);
-  const [activeLiveSession, setActiveLiveSession] = useState<any>(null);
+  const [activeLiveSession, setActiveLiveSession] = useState<Record<string, unknown> | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement>(null);
-  const [watchStream, setWatchStream] = useState<MediaStream | null>(null);
-  const watchVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('user_follows').select('following_id').eq('follower_id', userId);
-      setFollowingIds(new Set((data || []).map((d: any) => d.following_id)));
+      setFollowingIds(new Set((data || []).map((d: Record<string, unknown>) => d.following_id as string)));
     })();
   }, [userId]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('live_sessions').select('*').eq('status', 'live').order('created_at', { ascending: false });
-      setLiveSessions((data as any[]) || []);
+      setLiveSessions((data as Array<Record<string, unknown>>) || []);
     })();
   }, []);
 
@@ -275,7 +273,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
       .select('user_id, email, uid, profile_picture_url')
       .in('user_id', authorIds);
 
-    const authorMap = new Map<string, any>();
+    const authorMap = new Map<string, Record<string, unknown>>();
     (authorsData || []).forEach(a => authorMap.set(a.user_id, a));
 
     // Step 3: Fetch user interactions
@@ -285,12 +283,12 @@ export default function CommunityFeed({ userId, profile }: Props) {
       .eq('user_id', userId);
 
     const userInteractions = new Map<string, Set<string>>();
-    (interactions || []).forEach((i: any) => {
+    (interactions || []).forEach((i: Record<string, unknown>) => {
       if (!userInteractions.has(i.post_id)) userInteractions.set(i.post_id, new Set());
       userInteractions.get(i.post_id)!.add(i.type);
     });
 
-    const mapped: Post[] = (postsData as any[]).map(p => {
+    const mapped: Post[] = (postsData as Array<Record<string, unknown>>).map(p => {
       const author = authorMap.get(p.author_id);
       const userInt = userInteractions.get(p.id) || new Set();
       return {
@@ -362,7 +360,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
     try {
       const { imageUrl: upImg, videoUrl: upVid } = await uploadMedia();
 
-      const postData: Record<string, any> = {
+      const postData: Record<string, unknown> = {
         author_id: userId,
         content: newPost.trim(),
         image_url: upImg,
@@ -434,7 +432,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
       .eq('post_id', post.id)
       .eq('type', 'COMMENT')
       .order('created_at', { ascending: true });
-    setComments((data as any[]) || []);
+    setComments((data as Array<{ id: string; comment_text: string; user_id: string; created_at: string }>) || []);
   };
 
   const submitComment = async () => {
@@ -573,13 +571,14 @@ export default function CommunityFeed({ userId, profile }: Props) {
 
       // Auto-stop when user ends screen share or camera is disconnected
       stream.getVideoTracks()[0].onended = () => stopLiveStream();
-    } catch (err: any) {
-      if (err?.name === 'NotAllowedError') {
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      if (e?.name === 'NotAllowedError') {
         platformAlert.error('Permission Denied', 'Camera/screen access was denied. Please allow access in your browser settings and try again.');
-      } else if (err?.name === 'NotFoundError') {
+      } else if (e?.name === 'NotFoundError') {
         platformAlert.error('No Camera', 'No camera found on this device. Try screen sharing instead.');
       } else {
-        platformAlert.error('Live Failed', `Could not start stream: ${err?.message || 'Unknown error'}. Please try again.`);
+        platformAlert.error('Live Failed', `Could not start stream: ${e?.message || 'Unknown error'}. Please try again.`);
       }
     }
     setLiveStarting(false);
@@ -598,7 +597,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
     setLiveSource(null);
     setLiveTitle('');
     const { data } = await supabase.from('live_sessions').select('*').eq('status', 'live').order('created_at', { ascending: false });
-    setLiveSessions((data as any[]) || []);
+    setLiveSessions((data as Array<Record<string, unknown>>) || []);
   };
 
   const switchCamera = async () => {

@@ -27,7 +27,7 @@ type Message = {
   read_at: string | null;
 };
 
-export default function InboxScreen({ userId, profile, onBack, targetUserId }: Props) {
+export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConv, setActiveConv] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -127,7 +127,7 @@ export default function InboxScreen({ userId, profile, onBack, targetUserId }: P
         schema: 'public',
         table: 'messages',
         filter: `conversation_id=eq.${activeConv.id}`,
-      }, (payload: any) => {
+      }, (payload: { new: Message & { sender_id: string; id: string } }) => {
         setMessages(prev => [...prev, payload.new as Message]);
         if (payload.new.sender_id !== userId) {
           supabase.from('messages').update({ read_at: new Date().toISOString() })
@@ -167,7 +167,7 @@ export default function InboxScreen({ userId, profile, onBack, targetUserId }: P
       .ilike('email', `%${query}%`)
       .neq('user_id', userId)
       .limit(10);
-    setSearchResults((data as any[]) || []);
+    setSearchResults((data as Array<{ user_id: string; email: string; profile_picture_url?: string }>) || []);
   };
 
   const startChatWith = async (targetId: string, email: string) => {

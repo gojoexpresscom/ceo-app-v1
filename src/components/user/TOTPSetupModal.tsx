@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Shield, Copy, Check, AlertCircle, RefreshCw, Mail, Smartphone } from 'lucide-react';
+import { X, Shield, Copy, Check, AlertCircle, Mail, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateTOTPSecret, getOtpAuthURI, verifyTOTP } from '@/lib/totp';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +30,7 @@ export default function TOTPSetupModal({ userId, email, enabled, existingSecret,
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [, setEmailSent] = useState(false);
 
   const otpUri = getOtpAuthURI(secret, email);
 

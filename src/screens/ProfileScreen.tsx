@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Shield, BadgeCheck, AlertTriangle, ChevronRight, LogOut, TrendingUp,
-  KeyRound, Lock, Wallet, Coins, Gift, Headphones, Globe, ChevronDown, Clock,
+  KeyRound, Lock, Gift, Headphones, Globe, ChevronDown, Clock,
 } from 'lucide-react';
 import { EARN_PRODUCTS, SUPPORT_EMAIL } from '@/config/constants';
 import type { Profile } from '@/lib/supabase';
@@ -22,7 +22,7 @@ type Props = {
 type Tab = 'assets' | 'earn' | 'profile' | 'security';
 type AssetTab = 'spot' | 'fiat' | 'futures' | 'options' | 'margin' | 'earn' | 'funding';
 
-export default function ProfileScreen({ profile, usdtBalance, userId, onOpenKyc, onOpenSecurity, onSubscribeEarn, onLogout }: Props) {
+export default function ProfileScreen({ profile, usdtBalance, userId, onSubscribeEarn, onLogout }: Props) {
   const [tab, setTab] = useState<Tab>('assets');
   const [assetTab, setAssetTab] = useState<AssetTab>('spot');
   const [selectedEarn, setSelectedEarn] = useState<{ coin: string; apy: string; type: string; minAmount: number } | null>(null);
