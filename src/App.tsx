@@ -50,6 +50,51 @@ export default function App() {
   // Auth init — no blocking spinner, render auth screen immediately if no session
   // 3-day inactivity auto-logout: track last activity timestamp
   const lastActivityRef = useRef<number>(Date.now());
+    // Auth init & inactivity check
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!mounted) return;
+      
+      const lastActivity = localStorage.getItem('ceo_last_activity');
+      if (lastActivity) {
+        const elapsed = Date.now() - parseInt(lastActivity);
+        if (elapsed > 72 * 60 * 60 * 1000) { // 72 hours
+          await supabase.auth.signOut();
+          localStorage.removeItem('ceo_last_activity');
+          setSession(null);
+          setAuthReady(true);
+          return;
+        }
+      }
+      setSession(s as { user: { id: string; email?: string } } | null);
+      setAuthReady(true);
+    })();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s as { user: { id: string; email?: string } } | null);
+      if (s) localStorage.setItem('ceo_last_activity', Date.now().toString());
+      if (s) { setProfile(null); setProfileLoaded(false); setActiveTab('home'); setScreen('main'); localStorage.removeItem('ceo_locked'); }
+    });
+
+    // ==========================================
+    // KEEP-ALIVE HEARTBEAT PING (Prevents Vercel Sleep)
+    // ==========================================
+    const keepAliveInterval = setInterval(async () => {
+      try {
+        await fetch(window.location.origin, { method: 'HEAD' });
+      } catch (error) {
+        // Silent catch
+      }
+    }, 4 * 60 * 1000); // Pings every 4 minutes
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      clearInterval(keepAliveInterval);
+    };
+  }, [])]
   useEffect(() => {
     let mounted = true;
     (async () => {
