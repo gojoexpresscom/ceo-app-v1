@@ -22,6 +22,7 @@ import InviteFriendsModal from '@/components/modals/InviteFriendsModal';
 import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
 import { PlatformAlertHost } from '@/components/modals/PlatformAlert';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 type Tab = 'home' | 'markets' | 'assets' | 'earn' | 'profile';
 type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox';
@@ -432,6 +433,7 @@ export default function App() {
       {showGiveaway && <GiveawayModal userId={userId} profile={profile} onClose={() => setShowGiveaway(false)} onProfileUpdate={handleProfileUpdate} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       <PlatformAlertHost />
+      <SpeedInsights />
     </div>
   );
 }
