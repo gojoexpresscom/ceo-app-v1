@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[class*="bolt-badge"],
+[id*="bolt-badge"],
+a[href*="bolt.new"],
+div[style*="z-index: 9999"],
+iframe[src*="bolt"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
