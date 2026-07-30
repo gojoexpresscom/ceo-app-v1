@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Home, TrendingUp, Wallet, User, Gift, Plus, Bell, Menu, Headphones, X, Mail, MessageCircle, Search } from 'lucide-react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
 import { supabase, type Profile } from '@/lib/supabase';
 import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, TELEGRAM_COMMUNITY } from '@/config/constants';
 import AuthScreen from '@/components/auth/AuthScreen';
@@ -440,7 +439,6 @@ export default function App() {
       {showGiveaway && <GiveawayModal userId={userId} profile={profile} onClose={() => setShowGiveaway(false)} onProfileUpdate={handleProfileUpdate} />}
       {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
       <PlatformAlertHost />
-      <SpeedInsights />
     </div>
   );
 }
