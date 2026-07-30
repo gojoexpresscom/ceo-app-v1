@@ -24,7 +24,7 @@ function generateEmailCode(): string {
 export default function TOTPSetupModal({ userId, email, enabled, existingSecret, onClose, onChanged }: Props) {
   const [step, setStep] = useState<Step>(enabled ? 'disable' : 'intro');
   const [secret] = useState(() => generateTOTPSecret());
-  const [emailCode] = useState(generateEmailCode);
+  const [,] = useState(generateEmailCode);
   const [enteredEmailCode, setEnteredEmailCode] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [copiedSecret, setCopiedSecret] = useState(false);
@@ -39,22 +39,21 @@ export default function TOTPSetupModal({ userId, email, enabled, existingSecret,
     setLoading(true);
     setError('');
     try {
-      // Store the code server-side via profile extra data for validation
-      await supabase.from('profiles').update({
-        totp_email_code: emailCode,
-        totp_email_code_expires: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      }).eq('user_id', userId);
-
-      // Send email via Supabase edge function
-      await supabase.functions.invoke('send-notification', {
-        body: {
-          user_id: userId,
-          type: '2FA_EMAIL_CODE',
-          title: 'CEO Exchange 2FA Verification Code',
-          code: emailCode,
-          email,
-        },
+      // Send OTP via edge function (real email delivery)
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email, purpose: '2fa_setup', userId }),
       });
+      if (!res.ok) throw new Error('Failed to send email');
+      const data = await res.json();
+      // Store the dev code for verification if in dev mode
+      if (data.devCode) {
+        await supabase.from('profiles').update({
+          totp_email_code: data.devCode,
+          totp_email_code_expires: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        }).eq('user_id', userId);
+      }
       setEmailSent(true);
       setStep('email_sent');
     } catch {

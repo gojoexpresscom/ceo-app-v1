@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Search, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, Send, Search, MessageCircle, X, Headphones, AlertTriangle, Loader2, Check } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
+
+type InboxTab = 'messages' | 'support';
 
 type Props = {
   userId: string;
@@ -27,7 +29,8 @@ type Message = {
   read_at: string | null;
 };
 
-export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
+export default function InboxScreen({ userId, profile, onBack, targetUserId }: Props) {
+  const [inboxTab, setInboxTab] = useState<InboxTab>('messages');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConv, setActiveConv] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -36,6 +39,13 @@ export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<{ user_id: string; email: string; profile_picture_url?: string }[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<Array<{ id: string; subject: string; message: string; category: string; status: string; created_at: string }>>([]);
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketCategory, setTicketCategory] = useState('general');
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [ticketSuccess, setTicketSuccess] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -187,6 +197,28 @@ export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
     }
   };
 
+  const loadSupportTickets = useCallback(async () => {
+    const { data } = await supabase.from('support_tickets').select('id, subject, message, category, status, created_at').eq('user_id', userId).order('created_at', { ascending: false });
+    setSupportTickets((data as Array<{ id: string; subject: string; message: string; category: string; status: string; created_at: string }>) || []);
+  }, [userId]);
+
+  useEffect(() => { loadSupportTickets(); }, [loadSupportTickets]);
+
+  const submitTicket = async () => {
+    if (!ticketSubject.trim() || !ticketMessage.trim()) return;
+    setTicketLoading(true);
+    await supabase.from('support_tickets').insert({
+      user_id: userId, user_email: profile.email,
+      subject: ticketSubject.trim(), message: ticketMessage.trim(),
+      category: ticketCategory, status: 'open',
+    });
+    setTicketSubject(''); setTicketMessage(''); setTicketCategory('general');
+    setShowNewTicket(false); setTicketSuccess(true);
+    setTimeout(() => setTicketSuccess(false), 3000);
+    setTicketLoading(false);
+    loadSupportTickets();
+  };
+
   const formatTime = (date: string) => {
     const d = new Date(date);
     const diff = Date.now() - d.getTime();
@@ -256,10 +288,64 @@ export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2026] sticky top-0 bg-[#0b0e11] z-10">
         <button onClick={onBack}><ArrowLeft className="w-5 h-5 text-[#848e9c]" /></button>
         <h1 className="text-base font-bold">Inbox</h1>
-        <button onClick={() => setShowSearch(!showSearch)}><Search className="w-5 h-5 text-[#f0b90b]" /></button>
+        {inboxTab === 'messages' ? (
+          <button onClick={() => setShowSearch(!showSearch)}><Search className="w-5 h-5 text-[#f0b90b]" /></button>
+        ) : (
+          <button onClick={() => setShowNewTicket(!showNewTicket)}><AlertTriangle className="w-5 h-5 text-[#f0b90b]" /></button>
+        )}
       </div>
 
-      {showSearch && (
+      {/* Tab switcher */}
+      <div className="flex gap-1 px-2 py-2 border-b border-[#1e2026]">
+        <button onClick={() => setInboxTab('messages')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${inboxTab === 'messages' ? 'bg-[#f0b90b] text-black' : 'text-[#848e9c]'}`}>Messages</button>
+        <button onClick={() => setInboxTab('support')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${inboxTab === 'support' ? 'bg-[#f0b90b] text-black' : 'text-[#848e9c]'}`}>Support</button>
+      </div>
+
+      {/* New ticket form */}
+      {inboxTab === 'support' && showNewTicket && (
+        <div className="px-4 py-3 border-b border-[#1e2026] space-y-3">
+          {ticketSuccess && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg px-3 py-2 text-xs flex items-center gap-2"><Check className="w-4 h-4" /> Ticket submitted! Admin will review soon.</div>}
+          <input value={ticketSubject} onChange={e => setTicketSubject(e.target.value)} placeholder="Subject" className="w-full bg-[#1e2026] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]" />
+          <select value={ticketCategory} onChange={e => setTicketCategory(e.target.value)} className="w-full bg-[#1e2026] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef]">
+            <option value="general">General Question</option>
+            <option value="report_user">Report a User</option>
+            <option value="report_trade">Report a Trade</option>
+            <option value="merchant_request">Merchant Access Request</option>
+            <option value="bug">Bug Report</option>
+            <option value="feedback">Feedback</option>
+            <option value="p2p_dispute">P2P Dispute</option>
+          </select>
+          <textarea value={ticketMessage} onChange={e => setTicketMessage(e.target.value)} placeholder="Describe your issue in any language..." rows={4} className="w-full bg-[#1e2026] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b] resize-none" />
+          <button onClick={submitTicket} disabled={ticketLoading || !ticketSubject.trim() || !ticketMessage.trim()} className="w-full bg-[#f0b90b] disabled:opacity-50 text-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+            {ticketLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Submit Ticket
+          </button>
+        </div>
+      )}
+
+      {/* Support tickets list */}
+      {inboxTab === 'support' && !showNewTicket && (
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          {supportTickets.length === 0 ? (
+            <div className="text-center py-12">
+              <Headphones className="w-12 h-12 text-[#474d57] mx-auto mb-3" />
+              <p className="text-sm text-[#848e9c] font-semibold">No support tickets</p>
+              <p className="text-xs text-[#474d57] mt-1">Tap the alert icon to submit a report or question.</p>
+            </div>
+          ) : supportTickets.map(t => (
+            <div key={t.id} className="bg-[#1e2026] rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${t.status === 'open' ? 'bg-amber-500/20 text-amber-400' : t.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>{t.status.toUpperCase()}</span>
+                <span className="text-[10px] text-[#474d57]">{new Date(t.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-sm font-bold text-[#eaecef]">{t.subject}</p>
+              <p className="text-xs text-[#848e9c] mt-1">{t.message}</p>
+              <p className="text-[10px] text-[#474d57] mt-2">Category: {t.category.replace(/_/g, ' ')}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {inboxTab === 'messages' && showSearch && (
         <div className="px-4 py-3 border-b border-[#1e2026]">
           <div className="flex items-center gap-2 bg-[#1e2026] border border-[#2b2f36] rounded-xl px-3 py-2.5">
             <Search className="w-4 h-4 text-[#848e9c]" />
@@ -291,38 +377,40 @@ export default function InboxScreen({ userId, onBack, targetUserId }: Props) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin" /></div>
-        ) : conversations.length === 0 ? (
-          <div className="text-center py-12">
-            <MessageCircle className="w-12 h-12 text-[#474d57] mx-auto mb-3" />
-            <p className="text-sm text-[#848e9c] font-semibold">No conversations yet</p>
-            <p className="text-xs text-[#474d57] mt-1">Tap the search icon to find and message other users.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {conversations.map(c => (
-              <button
-                key={c.id}
-                onClick={() => openConversation(c)}
-                className="w-full flex items-center gap-3 bg-[#1e2026] rounded-xl p-3 hover:bg-[#2b2f36] transition-colors text-left"
-              >
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-sm font-bold text-black overflow-hidden flex-shrink-0">
-                  {c.other_avatar ? <img src={c.other_avatar} alt="" className="w-full h-full object-cover" /> : (c.other_email || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-bold text-[#eaecef] truncate">{c.other_email?.split('@')[0] || 'User'}</p>
-                    <span className="text-xs text-[#474d57] flex-shrink-0">{c.last_message_at ? formatTime(c.last_message_at) : ''}</span>
+      {inboxTab === 'messages' && (
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {loading ? (
+            <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#f0b90b] border-t-transparent rounded-full animate-spin" /></div>
+          ) : conversations.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageCircle className="w-12 h-12 text-[#474d57] mx-auto mb-3" />
+              <p className="text-sm text-[#848e9c] font-semibold">No conversations yet</p>
+              <p className="text-xs text-[#474d57] mt-1">Tap the search icon to find and message other users.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {conversations.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => openConversation(c)}
+                  className="w-full flex items-center gap-3 bg-[#1e2026] rounded-xl p-3 hover:bg-[#2b2f36] transition-colors text-left"
+                >
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-sm font-bold text-black overflow-hidden flex-shrink-0">
+                    {c.other_avatar ? <img src={c.other_avatar} alt="" className="w-full h-full object-cover" /> : (c.other_email || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <p className="text-xs text-[#848e9c] truncate mt-0.5">{c.last_message || 'No messages yet'}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-bold text-[#eaecef] truncate">{c.other_email?.split('@')[0] || 'User'}</p>
+                      <span className="text-xs text-[#474d57] flex-shrink-0">{c.last_message_at ? formatTime(c.last_message_at) : ''}</span>
+                    </div>
+                    <p className="text-xs text-[#848e9c] truncate mt-0.5">{c.last_message || 'No messages yet'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

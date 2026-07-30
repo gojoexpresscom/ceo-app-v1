@@ -42,6 +42,18 @@ const BASE_RATES: Record<string, number> = {
   AED: 3.67, INR: 83.5, CAD: 1.36, AUD: 1.52, ZAR: 18.5, GHS: 15.2,
 };
 
+// P2P ETB pricing: Buy at 180 ETB, Sell at 175 ETB (5 ETB margin for merchant)
+const ETB_BUY_PRICE = 180;
+const ETB_SELL_PRICE = 175;
+
+function getP2PPrice(fiat: string, side: 'BUY' | 'SELL', fxRate: number): number {
+  if (fiat === 'ETB') {
+    return side === 'BUY' ? ETB_BUY_PRICE : ETB_SELL_PRICE;
+  }
+  // For non-ETB fiats, use standard FX rate
+  return fxRate;
+}
+
 type P2PAd = {
   id: string;
   merchant_name: string;
@@ -125,6 +137,21 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [adTotal, setAdTotal] = useState('');
   const [adMethods, setAdMethods] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [merchantReqLoading, setMerchantReqLoading] = useState(false);
+
+  const requestMerchantAccess = async () => {
+    setMerchantReqLoading(true);
+    await supabase.from('merchant_requests').insert({
+      user_id: userId,
+      user_email: profile.email,
+      request_type: 'both',
+      message: 'I would like to become a P2P merchant to buy and sell crypto.',
+      status: 'pending',
+    });
+    await supabase.from('profiles').update({ p2p_merchant_status: 'PENDING' }).eq('user_id', userId);
+    platformAlert.success('Request Sent', 'Your merchant access request has been sent to admin for review.');
+    setMerchantReqLoading(false);
+  };
 
   const loadAds = useCallback(async () => {
     setLoading(true);
@@ -472,13 +499,22 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     setAdMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
   const createAd = async () => {
-    if (!adPrice || !adMin || !adMax || adMethods.length === 0) return;
+    if (!adMin || !adMax || adMethods.length === 0) return;
 
     // KYC check
     if (profile.kyc_status !== 'VERIFIED') {
       platformAlert.warn('KYC Required', 'You must complete identity verification before creating P2P ads.');
       return;
     }
+
+    // Merchant access check — users must be approved merchants to create ads
+    if (profile.p2p_merchant_status !== 'APPROVED') {
+      platformAlert.warn('Merchant Access Required', 'You must request merchant access via Support Inbox first. Admin/Owner will review your request.');
+      return;
+    }
+
+    // Auto-calculate price based on ETB rates: Buy=180, Sell=175
+    const autoPrice = getP2PPrice(adFiat, adSide, fxRates[adFiat] || 1);
 
     setCreating(true);
 
@@ -495,7 +531,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     const merchantName = profile.nickname || profile.email.split('@')[0];
     await supabase.from('p2p_orders').insert({
       merchant_name: merchantName,
-      price_etb: parseFloat(adPrice),
+      price_etb: autoPrice,
       min_limit: parseFloat(adMin),
       max_limit: parseFloat(adMax),
       payment_methods: adMethods,
@@ -580,6 +616,23 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
           <span className="text-sm font-bold text-[#eaecef]">1 USD = {fxRates[fiat]?.toFixed(2) || '—'} {fiat}</span>
         </div>
       </div>
+
+      {/* Merchant Access Request Banner */}
+      {profile.p2p_merchant_status !== 'APPROVED' && (
+        <div className="px-4 pb-3">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
+            <Shield className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs font-bold text-amber-400">Merchant Access Required</p>
+              <p className="text-[10px] text-[#848e9c]">Request access via Support to create P2P ads</p>
+            </div>
+            <button onClick={() => requestMerchantAccess()} disabled={merchantReqLoading}
+              className="bg-amber-500/20 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50">
+              {merchantReqLoading ? 'Sending...' : profile.p2p_merchant_status === 'PENDING' ? 'Pending' : 'Request'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-4 pb-3">
@@ -877,9 +930,13 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
               <div>
                 <p className="text-xs text-[#848e9c] mb-1.5">Price per {adCrypto} ({adFiat})</p>
-                <input type="number" value={adPrice} onChange={e => setAdPrice(e.target.value)} placeholder={fxRates[adFiat]?.toFixed(2) || '0.00'}
-                  className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]" />
-                <p className="text-xs text-[#474d57] mt-1">Market rate: {fxRates[adFiat]?.toFixed(2) || '—'} {adFiat}</p>
+                <div className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef]">
+                  <span className="font-bold text-amber-400">{getP2PPrice(adFiat, adSide, fxRates[adFiat] || 1).toFixed(2)} {adFiat}</span>
+                  <span className="text-xs text-[#474d57] ml-2">
+                    {adSide === 'BUY' ? '(Buy rate — market standard)' : '(Sell rate — 5 ETB merchant margin)'}
+                  </span>
+                </div>
+                <p className="text-xs text-[#474d57] mt-1">Price is auto-set based on Binance P2P standard rates.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -22,9 +22,11 @@ import InviteFriendsModal from '@/components/modals/InviteFriendsModal';
 import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
 import { PlatformAlertHost } from '@/components/modals/PlatformAlert';
+import AdminPanelScreen from '@/screens/AdminPanelScreen';
+import { isAdminEmail, isOwnerEmail } from '@/lib/auth';
 
 type Tab = 'home' | 'markets' | 'assets' | 'earn' | 'profile';
-type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox';
+type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox' | 'adminPanel';
 
 export default function App() {
   const [session, setSession] = useState<{ user: { id: string; email?: string } } | null>(null);
@@ -50,51 +52,6 @@ export default function App() {
   // Auth init — no blocking spinner, render auth screen immediately if no session
   // 3-day inactivity auto-logout: track last activity timestamp
   const lastActivityRef = useRef<number>(Date.now());
-    // Auth init & inactivity check
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (!mounted) return;
-      
-      const lastActivity = localStorage.getItem('ceo_last_activity');
-      if (lastActivity) {
-        const elapsed = Date.now() - parseInt(lastActivity);
-        if (elapsed > 72 * 60 * 60 * 1000) { // 72 hours
-          await supabase.auth.signOut();
-          localStorage.removeItem('ceo_last_activity');
-          setSession(null);
-          setAuthReady(true);
-          return;
-        }
-      }
-      setSession(s as { user: { id: string; email?: string } } | null);
-      setAuthReady(true);
-    })();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s as { user: { id: string; email?: string } } | null);
-      if (s) localStorage.setItem('ceo_last_activity', Date.now().toString());
-      if (s) { setProfile(null); setProfileLoaded(false); setActiveTab('home'); setScreen('main'); localStorage.removeItem('ceo_locked'); }
-    });
-
-    // ==========================================
-    // KEEP-ALIVE HEARTBEAT PING (Prevents Vercel Sleep)
-    // ==========================================
-    const keepAliveInterval = setInterval(async () => {
-      try {
-        await fetch(window.location.origin, { method: 'HEAD' });
-      } catch (error) {
-        // Silent catch
-      }
-    }, 4 * 60 * 1000); // Pings every 4 minutes
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-      clearInterval(keepAliveInterval);
-    };
-  }, [])
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -260,6 +217,11 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  // Redirect admin/owner to admin panel
+  if (profile && (isAdminEmail(profile.email) || isOwnerEmail(profile.email)) && screen !== 'adminPanel') {
+    return <AdminPanelScreen userId={userId} profile={profile} onBack={() => { setScreen('main'); }} onLogout={handleLogout} />;
   }
 
   // While profile loads, show a minimal non-blocking loader (no full-screen dim)
