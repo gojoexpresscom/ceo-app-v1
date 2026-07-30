@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
   Shield, BadgeCheck, AlertTriangle, ChevronRight, LogOut, TrendingUp,
-  KeyRound, Lock, Gift, Headphones, Globe, ChevronDown, Clock,
+  KeyRound, Lock, Gift, Headphones, Globe, ChevronDown, Clock, FlagCircle, X, Send, Loader2,
 } from 'lucide-react';
 import { EARN_PRODUCTS, SUPPORT_EMAIL } from '@/config/constants';
 import type { Profile } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import EarnModal from '@/components/modals/EarnModal';
 import KYCModal from '@/components/modals/KYCModal';
 import SecurityModal from '@/components/modals/SecurityModal';
@@ -17,17 +18,23 @@ type Props = {
   onOpenSecurity: (type: 'security' | 'antiphishing' | 'password' | 'passcode') => void;
   onSubscribeEarn: (amount: number) => void;
   onLogout: () => void;
+  onProfileUpdate?: (updates: Partial<Profile>) => void;
 };
 
 type Tab = 'assets' | 'earn' | 'profile' | 'security';
 type AssetTab = 'spot' | 'fiat' | 'futures' | 'options' | 'margin' | 'earn' | 'funding';
 
-export default function ProfileScreen({ profile, usdtBalance, userId, onSubscribeEarn, onLogout }: Props) {
+export default function ProfileScreen({ profile, usdtBalance, userId, onSubscribeEarn, onLogout, onProfileUpdate }: Props) {
   const [tab, setTab] = useState<Tab>('assets');
   const [assetTab, setAssetTab] = useState<AssetTab>('spot');
   const [selectedEarn, setSelectedEarn] = useState<{ coin: string; apy: string; type: string; minAmount: number } | null>(null);
   const [showKyc, setShowKyc] = useState(false);
   const [securityModal, setSecurityModal] = useState<'security' | 'antiphishing' | 'password' | 'passcode' | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const kycBadge = {
     VERIFIED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', label: 'Verified', icon: BadgeCheck },
@@ -44,6 +51,30 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
   ];
 
   const totalValue = usdtBalance + parseFloat((profile.btc_balance || 0).toString()) * 67000 + parseFloat((profile.eth_balance || 0).toString()) * 3500;
+
+  // Check if user is locked/reported
+  useState(() => {
+    supabase.from('profiles').select('is_locked, lock_reason').eq('user_id', userId).maybeSingle().then(({ data }) => {
+      if (data?.is_locked) setIsLocked(true);
+    });
+  });
+
+  const submitReport = async () => {
+    if (!reportText.trim()) return;
+    setReportLoading(true);
+    await supabase.from('support_tickets').insert({
+      user_id: userId,
+      user_email: profile.email,
+      subject: 'User Report / Support Request',
+      message: reportText,
+      category: 'report',
+      status: 'open',
+    });
+    setReportLoading(false);
+    setReportSent(true);
+    setReportText('');
+    setTimeout(() => { setShowReport(false); setReportSent(false); }, 2500);
+  };
 
   return (
     <div className="space-y-4">
@@ -311,6 +342,7 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
             { icon: Gift, label: 'Rewards Hub', desc: 'Claim rewards and bonuses', color: 'text-amber-400' },
             { icon: Globe, label: 'Language', desc: profile.preferred_language, color: 'text-slate-400' },
             { icon: Headphones, label: '24/7 Support', desc: SUPPORT_EMAIL, color: 'text-emerald-400' },
+            { icon: FlagCircle, label: 'Report a Problem', desc: 'Send a report in any language', color: 'text-rose-400', action: () => setShowReport(true) },
           ].map(item => (
             <button
               key={item.label}
@@ -325,6 +357,17 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
               <ChevronRight className="w-4 h-4 text-slate-600" />
             </button>
           ))}
+
+          {/* Account locked banner */}
+          {isLocked && (
+            <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-center gap-3">
+              <Lock className="w-5 h-5 text-rose-400 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-rose-400">Account Under Review</p>
+                <p className="text-xs text-slate-400">Your account has been reported and is under investigation. Some features may be restricted until resolved.</p>
+              </div>
+            </div>
+          )}
 
           {/* Logout */}
           <button
@@ -375,6 +418,47 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
               <ChevronRight className="w-4 h-4 text-slate-600" />
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Report modal */}
+      {showReport && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center max-w-md mx-auto" onClick={() => setShowReport(false)}>
+          <div className="w-full bg-[#181a20] rounded-t-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-[#2b2f36]">
+              <h3 className="font-bold text-lg text-[#eaecef]">Report a Problem</h3>
+              <button onClick={() => setShowReport(false)}><X className="w-5 h-5 text-[#848e9c]" /></button>
+            </div>
+            <div className="px-5 py-5 space-y-4">
+              {reportSent ? (
+                <div className="flex flex-col items-center py-8 gap-3">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <Send className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <p className="font-bold text-[#eaecef]">Report Sent!</p>
+                  <p className="text-xs text-[#848e9c] text-center">Your report has been sent to our admin team. We will review it and get back to you via the support inbox.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-[#848e9c]">Describe the issue you're experiencing. You can write in any language. Our admin team will review your report and respond via the support inbox.</p>
+                  <textarea
+                    value={reportText}
+                    onChange={e => setReportText(e.target.value)}
+                    placeholder="Describe the problem..."
+                    rows={5}
+                    className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b] placeholder-[#474d57] resize-none"
+                  />
+                  <button
+                    onClick={submitReport}
+                    disabled={reportLoading || !reportText.trim()}
+                    className="w-full bg-[#f0b90b] hover:bg-amber-400 disabled:opacity-50 text-black font-bold py-3.5 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    {reportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send Report
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

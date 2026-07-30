@@ -84,6 +84,15 @@ export default function AuthScreen({ onAuth }: Props) {
     // Check if it's the admin or owner email
     if (!isAdminEmail(adminEmail) && !isOwnerEmail(adminEmail)) {
       setError('Use business email');
+      setRobotChecked(false);
+      return;
+    }
+
+    // Validate strong password for admin/owner
+    const pwdCheck = validateStandardPassword(adminPassword);
+    if (!pwdCheck.valid) {
+      setError('Password must have: 8+ characters, 1 capital letter, 6+ digits, 1 special character.');
+      setRobotChecked(false);
       return;
     }
 
@@ -235,23 +244,30 @@ export default function AuthScreen({ onAuth }: Props) {
     if (code.length !== 6) { setError('Please enter the 6-digit code.'); return; }
 
     setLoading(true);
-    // Re-authenticate with email/password, then verify TOTP
+
+    // Fetch the user's TOTP secret from the database
+    const { data: profile } = await supabase.from('profiles').select('totp_secret').eq('user_id', pendingUserId).maybeSingle();
+
+    if (!profile?.totp_secret) {
+      setLoading(false);
+      setError('2FA is not configured for this account.');
+      return;
+    }
+
+    // Verify the TOTP code against the stored secret
+    const valid = await verifyTOTP(profile.totp_secret, code);
+
+    if (!valid) {
+      setLoading(false);
+      setError('Invalid 2FA code. Please check your authenticator app and try again.');
+      return;
+    }
+
+    // Re-authenticate with email/password
     const { error: signinError } = await supabase.auth.signInWithPassword({ email: pendingEmail, password });
-    if (signinError) { setLoading(false); setError(signinError.message); return; }
-
-    // Verify TOTP via edge function
-    try {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
-        body: JSON.stringify({ email: pendingEmail, purpose: '2fa_verify', userId: pendingUserId }),
-      });
-      if (res.ok) {
-        setMessage('2FA code sent to your email. Enter the new code below.');
-      }
-    } catch { /* ignore */ }
-
     setLoading(false);
+
+    if (signinError) { setError(signinError.message); return; }
     onAuth();
   };
 
@@ -342,10 +358,10 @@ export default function AuthScreen({ onAuth }: Props) {
         return;
       }
 
-      // First sign in with stored email
+      // Check if passkey is enabled for this account
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('user_id, passkey_count')
+        .select('user_id, passkey_count, email')
         .eq('email', stored)
         .maybeSingle();
 
@@ -355,7 +371,26 @@ export default function AuthScreen({ onAuth }: Props) {
         return;
       }
 
-      // Trigger WebAuthn
+      // Fetch stored credential IDs for this user
+      const { data: passkeyData } = await supabase
+        .from('passkeys')
+        .select('credential_id')
+        .eq('user_id', profileData.user_id);
+
+      const credentialIds = (passkeyData || []).map((p: { credential_id: string }) => {
+        const raw = atob(p.credential_id);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      });
+
+      if (credentialIds.length === 0) {
+        setLoading(false);
+        setPasskeyError('No passkey credentials found. Please use email/password login.');
+        return;
+      }
+
+      // Trigger WebAuthn authentication with stored credential IDs
       if (typeof window !== 'undefined' && window.PublicKeyCredential) {
         const challenge = crypto.getRandomValues(new Uint8Array(32));
         const credential = await navigator.credentials.get({
@@ -363,16 +398,20 @@ export default function AuthScreen({ onAuth }: Props) {
             challenge,
             timeout: 60000,
             userVerification: 'required',
+            allowCredentials: credentialIds.map(id => ({
+              type: 'public-key' as const,
+              id,
+            })),
           },
-        });
+        }) as PublicKeyCredential | null;
+
         if (credential) {
-          // Sign in with Supabase using the stored email (passwordless via OTP)
+          // Biometric verified — sign in with Supabase using stored email
           const { error: otpError } = await supabase.auth.signInWithOtp({
             email: stored,
             options: { shouldCreateUser: false },
           });
           if (otpError) {
-            // Fallback: try passwordless sign-in
             setLoading(false);
             setPasskeyError('Passkey verified but login failed. Please use email login.');
             return;
