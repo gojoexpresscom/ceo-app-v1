@@ -219,11 +219,6 @@ export default function App() {
     );
   }
 
-  // Redirect admin/owner to admin panel
-  if (profile && (isAdminEmail(profile.email) || isOwnerEmail(profile.email)) && screen !== 'adminPanel') {
-    return <AdminPanelScreen userId={userId} profile={profile} onBack={() => { setScreen('main'); }} onLogout={handleLogout} />;
-  }
-
   // While profile loads, show a minimal non-blocking loader (no full-screen dim)
   if (!profileLoaded || !profile) {
     return (
@@ -240,6 +235,11 @@ export default function App() {
 
   const usdtBalance = parseFloat(profile.usdt_balance.toString());
   const userId = profile.user_id || session?.user?.id || '';
+
+  // Redirect admin/owner to admin panel
+  if (isAdminEmail(profile.email) || isOwnerEmail(profile.email)) {
+    return <AdminPanelScreen userId={userId} profile={profile} onBack={() => { setScreen('main'); }} onLogout={handleLogout} />;
+  }
 
   // Full-screen trading view
   if (screen === 'trading' && tradePair) {
