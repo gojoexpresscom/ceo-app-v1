@@ -1,4 +1,96 @@
-    // In a full implementation, this would toggle a class on document root
+import { useState, useEffect, useCallback } from 'react';
+import {
+  ArrowLeft, UserCircle, Shield, KeyRound, Lock, Smartphone,
+  Clock, Wallet, TrendingUp, Bell, Mail, Globe, Moon, Sun,
+  HelpCircle, MessageSquare, Info, Trash2, ThumbsUp, LogOut,
+  ChevronRight, Check, Copy, BadgeCheck, Star, Percent, Users, Send
+} from 'lucide-react';
+import { supabase, type Profile } from '@/lib/supabase';
+import KYCModal from '@/components/modals/KYCModal';
+import EmailChangeModal from '@/components/modals/EmailChangeModal';
+import LinkAccountModal from '@/components/modals/LinkAccountModal';
+import ProfilePictureModal from '@/components/modals/ProfilePictureModal';
+import TOTPSetupModal from '@/components/modals/TOTPSetupModal';
+import PasskeysModal from '@/components/modals/PasskeysModal';
+
+type UCTab = 'myinfo' | 'security' | 'preference' | 'general';
+type UCMarkupModal = 
+  | null 
+  | 'kyc' 
+  | 'emailChange' 
+  | 'linkAccount' 
+  | 'profilePic' 
+  | 'totp' 
+  | 'passkeys' 
+  | 'antiPhishing' 
+  | 'fundPassword' 
+  | 'changePassword' 
+  | 'trustedDevices' 
+  | 'withdrawalAddress' 
+  | 'withdrawalLimits' 
+  | 'notifications' 
+  | 'feedback' 
+  | 'about' 
+  | 'vip' 
+  | 'feeRates' 
+  | 'securityGeneric' 
+  | 'subaccount';
+
+type Props = {
+  userId: string;
+  profile: Profile;
+  onBack: () => void;
+  onLogout: () => void;
+  onProfileUpdate: (updates: Partial<Profile>) => void;
+};
+
+const TELEGRAM_COMMUNITY = 'https://t.me/gojoexpress';
+const WHATSAPP_COMMUNITY = 'https://whatsapp.com/channel/gojoexpress';
+const SUPPORT_EMAIL = 'support@gojoexpress.com';
+
+const maskEmail = (email: string) => {
+  if (!email || !email.includes('@')) return email;
+  const [name, domain] = email.split('@');
+  if (name.length <= 2) return `${name[0]}***@${domain}`;
+  return `${name.slice(0, 2)}***@${domain}`;
+};
+
+export default function UserCenterScreen({ userId, profile, onBack, onLogout, onProfileUpdate }: Props) {
+  const [tab, setTab] = useState<UCTab>('myinfo');
+  const [modal, setModal] = useState<UCMarkupModal>(null);
+
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [colorUp, setColorUp] = useState(profile.color_up || 'green');
+  const [appLock, setAppLock] = useState(profile.app_lock_enabled || false);
+  const [secureTx, setSecureTx] = useState(profile.secure_tx_approval || false);
+  const [withdrawalLock] = useState(false);
+  const [alwaysOn, setAlwaysOn] = useState(false);
+
+  const [routing, setRouting] = useState(profile.routing_mode || 'auto');
+  const [depositTo, setDepositTo] = useState(profile.deposit_to || 'funding');
+  const [currency, setCurrency] = useState(profile.preferred_currency || 'USD');
+
+  const [copied, setCopied] = useState(false);
+  const [nickname, setNickname] = useState(profile.nickname || '');
+  const [showNicknameEdit, setShowNicknameEdit] = useState(false);
+  const [, setSavingPref] = useState(false);
+
+  const copyUID = () => {
+    navigator.clipboard.writeText(profile.uid || userId).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const saveNickname = async () => {
+    if (!nickname.trim()) return;
+    await supabase.from('profiles').update({ nickname: nickname.trim() }).eq('user_id', userId);
+    onProfileUpdate({ nickname: nickname.trim() });
+    setShowNicknameEdit(false);
+  };
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
     document.documentElement.classList.toggle('light-mode', next === 'light');
   };
 
@@ -38,6 +130,13 @@
     }
     setModal(null);
     alert('Cache and local storage cleared successfully.');
+  };
+
+  const handleOpenEmailApp = () => {
+    const mailtoUrl = 'mailto:';
+    const a = document.createElement('a');
+    a.href = mailtoUrl;
+    a.click();
   };
 
   const tabs: Array<{ id: UCTab; label: string }> = [
@@ -160,7 +259,6 @@
                 <ChevronRight className="w-4 h-4 text-[#474d57]" />
               </div>} />
 
-            {/* Nickname - editable */}
             {showNicknameEdit ? (
               <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-3">
                 <UserCircle className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
@@ -173,7 +271,6 @@
               <SettingRow icon={UserCircle} label="Nickname" value={profile.nickname || 'Not Set'} onPress={() => { setNickname(profile.nickname || ''); setShowNicknameEdit(true); }} />
             )}
 
-            {/* UID - read only, copy */}
             <SettingRow icon={BadgeCheck} label="UID" onPress={copyUID}
               rightNode={<div className="flex items-center gap-2">
                 <span className="text-sm text-[#848e9c]">{profile.uid}</span>
@@ -182,10 +279,30 @@
                 </button>
               </div>} />
 
-            {/* Email */}
-            <SettingRow icon={Mail} label="Email" value={maskEmail(profile.email)} onPress={() => setModal('emailChange')} />
+            {/* Branded Email Confirmation Card */}
+            <div className="mx-4 my-3 p-4 bg-[#1e2026] border border-[#2b2f36] rounded-2xl flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#f0b90b]/10 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-[#f0b90b]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#eaecef]">Email Verification</p>
+                    <p className="text-xs text-[#848e9c]">{maskEmail(profile.email)}</p>
+                  </div>
+                </div>
+                <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-medium">
+                  Active
+                </span>
+              </div>
+              <button
+                onClick={handleOpenEmailApp}
+                className="w-full bg-[#f0b90b] hover:bg-amber-400 text-black font-bold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
+              >
+                Confirm Email in Mail App
+              </button>
+            </div>
 
-            {/* KYC */}
             <SettingRow icon={Shield} label="Identity Verification"
               value={profile.kyc_status === 'VERIFIED' ? 'Verified' : profile.kyc_status === 'PENDING_VERIFICATION' ? 'Pending' : 'Unverified'}
               onPress={() => setModal('kyc')} />
@@ -195,7 +312,6 @@
             <SettingRow icon={BadgeCheck} label="Additional Verification" value="0 cases" onPress={() => setModal('securityGeneric')} />
             <SettingRow icon={Users} label="Subaccount" onPress={() => setModal('subaccount')} />
 
-            {/* Link Account */}
             <SettingRow icon={Link} label="Link Account" onPress={() => setModal('linkAccount')}
               rightNode={<div className="flex items-center gap-1.5">
                 {linkedChannels.length > 0 ? (
@@ -262,7 +378,6 @@
             <SettingRow icon={Wallet} label="Withdrawal Address Book" onPress={() => setModal('withdrawalAddress')} />
             <SettingRow icon={TrendingUp} label="Manage Crypto Withdrawal Limits" onPress={() => setModal('withdrawalLimits')} />
 
-            {/* Switch Routing dropdown */}
             <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
               <TrendingUp className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
               <span className="flex-1 text-sm text-[#eaecef]">Switch Routing</span>
@@ -274,7 +389,6 @@
               </select>
             </div>
 
-            {/* Route Deposits To dropdown */}
             <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
               <Wallet className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
               <span className="flex-1 text-sm text-[#eaecef]">Route Deposits To</span>
@@ -283,125 +397,4 @@
                 <option value="funding">Funding Account</option>
                 <option value="spot">Spot Account</option>
               </select>
-            </div>
-
-            <SectionHeader title="Notifications" />
-            <SettingRow icon={Bell} label="Notification Settings" onPress={() => setModal('notifications')} />
-            <SettingRow icon={Mail} label="Email Subscriptions" onPress={() => setModal('notifications')} />
-          </div>
-        )}
-
-        {/* ============ GENERAL ============ */}
-        {tab === 'general' && (
-          <div>
-            <SectionHeader title="Display" />
-            <SettingRow icon={Globe} label="Language" value={profile.preferred_language || 'English'} onPress={() => {}} />
-
-            {/* Currency Display dropdown */}
-            <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
-              <Wallet className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
-              <span className="flex-1 text-sm text-[#eaecef]">Currency Display</span>
-              <select value={currency} onChange={e => { setCurrency(e.target.value); savePref('preferred_currency', e.target.value); }}
-                className="bg-[#0b0e11] border border-[#2b2f36] rounded-lg px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]">
-                {['USD','EUR','GBP','JPY','ETB','NGN','KES','GHS','CNY','INR','BRL','AED','SAR'].map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-
-            {/* Color Theme toggle */}
-            <SettingRow icon={theme === 'dark' ? Moon : Sun} label="Color Theme" value={theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-              onPress={toggleTheme}
-              rightNode={<Toggle value={theme === 'dark'} onChange={toggleTheme} />} />
-
-            {/* Color Preferences */}
-            <SettingRow icon={TrendingUp} label="Color Preferences"
-              value={colorUp === 'green' ? 'Green Up / Red Down' : 'Red Up / Green Down'}
-              onPress={toggleColorPref} />
-
-            {/* Always On */}
-            <SettingRow icon={Smartphone} label="Always On (no screen lock)"
-              rightNode={<Toggle value={alwaysOn} onChange={() => setAlwaysOn(!alwaysOn)} />} />
-
-            <SectionHeader title="Support" />
-            <SettingRow icon={HelpCircle} label="Help Center" onPress={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=Help Center`, '_blank')} />
-            <SettingRow icon={MessageSquare} label="Contact Support" onPress={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=Support Request`, '_blank')} />
-            <SettingRow icon={MessageSquare} label="User Feedback" onPress={() => setModal('feedback')} />
-            <SettingRow icon={Info} label="About Us" onPress={() => setModal('about')} />
-
-            <SectionHeader title="App Management" />
-            <SettingRow icon={Trash2} label="Storage Management" onPress={clearStorage} />
-            <SettingRow icon={ThumbsUp} label="Rate Our App" onPress={() => setModal('feedback')} />
-          </div>
-        )}
-      </div>
-
-      {/* ============ MODALS ============ */}
-      {modal === 'kyc' && (
-        <KYCModal onClose={() => setModal(null)} userId={userId}
-          onComplete={(status) => onProfileUpdate({ kyc_status: status as Profile['kyc_status'] })} />
-      )}
-      {modal === 'emailChange' && (
-        <EmailChangeModal userId={userId} currentEmail={profile.email} onClose={() => setModal(null)}
-          onEmailChanged={(newEmail) => onProfileUpdate({ email: newEmail })} />
-      )}
-      {modal === 'linkAccount' && (
-        <LinkAccountModal userId={userId} profile={profile} onClose={() => setModal(null)}
-          onUpdate={(updates) => onProfileUpdate(updates as Partial<Profile>)} />
-      )}
-      {modal === 'profilePic' && (
-        <ProfilePictureModal userId={userId} currentPicture={profile.profile_picture_url} email={profile.email}
-          onClose={() => setModal(null)} onPictureChanged={(url) => onProfileUpdate({ profile_picture_url: url })} />
-      )}
-      {modal === 'totp' && (
-        <TOTPSetupModal userId={userId} email={profile.email} enabled={profile.two_fa_enabled}
-          existingSecret={profile.totp_secret} onClose={() => setModal(null)}
-          onChanged={(enabled) => onProfileUpdate({ two_fa_enabled: enabled, security_level: enabled ? 'High' : 'Medium' })} />
-      )}
-      {modal === 'passkeys' && (
-        <PasskeysModal userId={userId} email={profile.email} onClose={() => setModal(null)}
-          onUpdate={(count) => onProfileUpdate({ passkey_count: count })} />
-      )}
-      {modal === 'fundPassword' && (
-        <FundPasswordModal userId={userId} isSet={profile.fund_password_set} onClose={() => setModal(null)}
-          onSet={() => onProfileUpdate({ fund_password_set: true, security_level: 'High' })} />
-      )}
-      {modal === 'changePassword' && (
-        <ChangePasswordModal userId={userId} email={profile.email} onClose={() => setModal(null)} />
-      )}
-      {modal === 'trustedDevices' && (
-        <TrustedDevicesModal userId={userId} onClose={() => setModal(null)} />
-      )}
-      {modal === 'withdrawalAddress' && (
-        <WithdrawalAddressModal userId={userId} onClose={() => setModal(null)} />
-      )}
-      {modal === 'subaccount' && (
-        <SubaccountModal userId={userId} onClose={() => setModal(null)} />
-      )}
-      {modal === 'feedback' && (
-        <UserFeedbackModal userId={userId} onClose={() => setModal(null)} />
-      )}
-      {modal === 'vip' && (
-        <VIPModal currentLevel={profile.vip_level} onClose={() => setModal(null)} />
-      )}
-      {modal === 'feeRates' && (
-        <FeeRatesModal vipLevel={profile.vip_level} onClose={() => setModal(null)} />
-      )}
-      {modal === 'notifications' && (
-        <NotificationModal userId={userId} profile={profile} onClose={() => setModal(null)}
-          onUpdate={(updates) => onProfileUpdate(updates)} />
-      )}
-      {modal === 'antiPhishing' && (
-        <AntiPhishingModal userId={userId} currentCode={profile.anti_phishing_code}
-          onClose={() => setModal(null)} onUpdate={(code) => onProfileUpdate({ anti_phishing_code: code })} />
-      )}
-      {modal === 'about' && <AboutModal onClose={() => setModal(null)} />}
-      {modal === 'withdrawalLimits' && (
-        <WithdrawalLimitsModal kycStatus={profile.kyc_status} onClose={() => setModal(null)} />
-      )}
-      {modal === 'securityGeneric' && (
-        <SecurityModal type="security" onClose={() => setModal(null)} userId={userId}
-          currentSecurityLevel={profile.security_level} antiPhishingCode={profile.anti_phishing_code}
-          onUpdate={(updates) => onProfileUpdate(updates as Partial<Profile>)} />
-      )}
-    </div>
-  );
-}
+        
