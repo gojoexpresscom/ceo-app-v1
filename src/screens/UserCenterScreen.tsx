@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ArrowLeft, UserCircle, Shield, KeyRound, Lock, Smartphone,
   Clock, Wallet, TrendingUp, Mail, Globe, Moon, Sun,
-  LogOut, ChevronRight, Check, Copy, BadgeCheck, Star, Percent, Users, Send, Link
+  LogOut, ChevronRight, Check, Copy, BadgeCheck, Star, Percent, Users, Send, Link, Trash2, Info
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import KYCModal from '@/components/modals/KYCModal';
@@ -43,9 +43,8 @@ type Props = {
   onProfileUpdate: (updates: Partial<Profile>) => void;
 };
 
-const TELEGRAM_COMMUNITY = 'https://t.me/gojoexpress';
-const WHATSAPP_COMMUNITY = 'https://whatsapp.com/channel/gojoexpress';
-const SUPPORT_EMAIL = 'support@gojoexpress.com';
+const TELEGRAM_COMMUNITY = 'https://t.me/+-cQQMpJQAcxhNjlk';
+const WHATSAPP_COMMUNITY = 'https://chat.whatsapp.com/GXOUVSkLqXGC9vq76e9jDD';
 
 const maskEmail = (email: string) => {
   if (!email || !email.includes('@')) return email;
@@ -400,4 +399,5 @@ export default function UserCenterScreen({ userId, profile, onBack, onLogout, on
           </div>
         )}
 
-        {/* ============ GENERAL ====
+        {/* ============ GENERAL ============ */}
+        
