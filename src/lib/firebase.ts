@@ -1,13 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
-const supabaseUrl = 'https://sfrlnakpddzgouzihgrj.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmxuYWtwZGR6Z291emloZ3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEzMzgsImV4cCI6MjEwMDc5NzMzOH0.avV2WhXxtEaMUMwjto6Rdq-Mf649YVGDguvUVPVMN_U';
+// Your Firebase configuration keys
+const firebaseConfig = {
+  apiKey: "AIzaSyDgcu90U7RRYRqQAHbc_wza8CF1T1FJ_vM",
+  authDomain: "ceo-exchange.firebaseapp.com",
+  projectId: "ceo-exchange",
+  storageBucket: "ceo-exchange.firebasestorage.app",
+  messagingSenderId: "29103231278",
+  appId: "1:29103231278:web:9ec914404cd7617f722abf",
+  measurementId: "G-E2X3MJT6T4"
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseConfigured = true;
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const analytics = getAnalytics(app);
+export const firebaseConfigured = true;
 
+// TypeScript Models for Firestore Documents
 export type Profile = {
-  id: string;
+  id: string; // Firestore document ID (usually matches user.uid)
   user_id: string;
   email: string;
   usdt_balance: number;
