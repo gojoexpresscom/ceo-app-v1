@@ -1,4 +1,4 @@
-Import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://sfrlnakpddzgouzihgrj.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmxuYWtwZGR6Z291emloZ3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEzMzgsImV4cCI6MjEwMDc5NzMzOH0.avV2WhXxtEaMUMwjto6Rdq-Mf649YVGDguvUVPVMN_U';
