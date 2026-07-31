@@ -1,650 +1,376 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
-  ArrowLeft, Users, ShieldCheck, Megaphone, Gift, Ban,
-  MessageSquare, Check, X, Loader2, Search, Crown, Building2, Send,
-  TrendingUp, Wallet, Clock, UserCheck, UserX,
+  LayoutDashboard,
+  Users,
+  ShieldCheck,
+  Store,
+  ArrowLeftRight,
+  Ticket,
+  Megaphone,
+  Gift,
+  FileText,
+  Settings,
+  UserCheck,
+  Activity,
+  LogOut,
+  Search,
+  Download,
+  Eye,
+  Edit,
+  MoreHorizontal,
+  Bell,
+  Lock,
+  Mail,
+  Key,
 } from 'lucide-react';
-import { supabase, type Profile } from '@/lib/supabase';
-import { isAdminEmail, isOwnerEmail, type UserRole } from '@/lib/auth';
 
-type Props = {
-  userId: string;
-  profile: Profile;
-  onBack: () => void;
-  onLogout: () => void;
-};
-
-type Tab = 'dashboard' | 'users' | 'kyc' | 'announcements' | 'giveaways' | 'support' | 'merchant';
-
-type SupportTicket = {
+interface UserRow {
   id: string;
-  user_id: string;
-  user_email: string;
-  subject: string;
-  message: string;
-  category: string;
-  status: string;
-  priority: string;
-  created_at: string;
-};
+  name: string;
+  email: string;
+  status: 'Active' | 'Banned' | 'Pending';
+  kyc: 'Verified' | 'Not Verified' | 'Pending';
+  role: 'User' | 'Merchant' | 'Admin';
+  joined: string;
+  lastActive: string;
+}
 
-type MerchantReq = {
-  id: string;
-  user_id: string;
-  user_email: string;
-  request_type: string;
-  message: string | null;
-  status: string;
-  created_at: string;
-};
+export function AdminDashboard() {
+  // Admin Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
 
-type Announcement = {
-  id: string;
-  title: string;
-  content: string;
-  type: string;
-  is_active: boolean;
-  is_pinned: boolean;
-  created_at: string;
-};
-
-type KycSubmission = {
-  id: string;
-  user_id: string;
-  full_name: string;
-  document_type: string;
-  document_number: string;
-  status: string;
-  tier_level: number;
-  created_at: string;
-};
-
-export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: Props) {
-  const [tab, setTab] = useState<Tab>('dashboard');
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [merchantReqs, setMerchantReqs] = useState<MerchantReq[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [kycSubmissions, setKycSubmissions] = useState<KycSubmission[]>([]);
+  // Dashboard States
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
-  const [warnReason, setWarnReason] = useState('');
-  const [banReason, setBanReason] = useState('');
-  const [showWarnModal, setShowWarnModal] = useState(false);
-  const [showBanModal, setShowBanModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [roleFilter, setRoleFilter] = useState('All Roles');
+  const [toast, setToast] = useState<string | null>(null);
 
-  // Announcement form
-  const [annTitle, setAnnTitle] = useState('');
-  const [annContent, setAnnContent] = useState('');
-  const [annType, setAnnType] = useState('info');
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
 
-  // Giveaway form
-  const [giveTitle, setGiveTitle] = useState('');
-  const [giveDesc, setGiveDesc] = useState('');
-  const [giveAmount, setGiveAmount] = useState('');
-  const [giveCodes, setGiveCodes] = useState('1');
-  const [giveCurrency, setGiveCurrency] = useState('USDT');
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
 
-  // Support reply
-  const [replyText, setReplyText] = useState('');
-  const [activeTicket, setActiveTicket] = useState<SupportTicket | null>(null);
-
-  const role: UserRole = profile.role || (isOwnerEmail(profile.email) ? 'owner' : isAdminEmail(profile.email) ? 'admin' : 'user');
-  const isOwner = role === 'owner';
-
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    const [usersRes, ticketsRes, merchantRes, annRes, kycRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
-      supabase.from('merchant_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('platform_announcements').select('*').order('created_at', { ascending: false }),
-      supabase.from('user_verifications').select('*').order('created_at', { ascending: false }),
-    ]);
-    setUsers((usersRes.data as Profile[]) || []);
-    setTickets((ticketsRes.data as SupportTicket[]) || []);
-    setMerchantReqs((merchantRes.data as MerchantReq[]) || []);
-    setAnnouncements((annRes.data as Announcement[]) || []);
-    setKycSubmissions((kycRes.data as KycSubmission[]) || []);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
-
-  const filteredUsers = users.filter(u =>
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.uid?.includes(searchQuery) ||
-    u.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleWarnUser = async () => {
-    if (!selectedUser || !warnReason.trim()) return;
-    setLoading(true);
-    const newWarningCount = (selectedUser.warning_count || 0) + 1;
-    await supabase.from('user_warnings').insert({
-      user_id: selectedUser.user_id,
-      warned_by: userId,
-      warned_by_email: profile.email,
-      reason: warnReason,
-      warning_number: newWarningCount,
-    });
-    await supabase.from('profiles').update({ warning_count: newWarningCount }).eq('user_id', selectedUser.user_id);
-
-    // If 2 warnings, auto-ban and transfer funds to owner
-    if (newWarningCount >= 2) {
-      const ownerEmail = 'gojoexpresscom@gmail.com';
-      const { data: ownerProfile } = await supabase.from('profiles').select('user_id, usdt_balance').eq('email', ownerEmail).maybeSingle();
-      if (ownerProfile) {
-        // Transfer all balances to owner
-        const bannedUsdt = parseFloat(selectedUser.usdt_balance?.toString() || '0');
-        const bannedBtc = parseFloat(selectedUser.btc_balance?.toString() || '0');
-        const bannedEth = parseFloat(selectedUser.eth_balance?.toString() || '0');
-        const ownerUsdt = parseFloat(ownerProfile.usdt_balance?.toString() || '0') + bannedUsdt;
-        const ownerBtc = parseFloat(ownerProfile.btc_balance?.toString() || '0') + bannedBtc;
-        const ownerEth = parseFloat(ownerProfile.eth_balance?.toString() || '0') + bannedEth;
-        await supabase.from('profiles').update({
-          usdt_balance: ownerUsdt, btc_balance: ownerBtc, eth_balance: ownerEth,
-        }).eq('user_id', ownerProfile.user_id);
-      }
-      await supabase.from('profiles').update({
-        is_banned: true, banned_at: new Date().toISOString(),
-        ban_reason: `Banned after 2 warnings: ${warnReason}`,
-        usdt_balance: 0, btc_balance: 0, eth_balance: 0,
-      }).eq('user_id', selectedUser.user_id);
+    if (emailInput === 'ceo.exchange.web@gmail.com' && passwordInput === 'Tech469339$') {
+      setIsAuthenticated(true);
+      showToast('Admin login successful!');
+    } else {
+      setAuthError('Invalid admin email or password.');
     }
-
-    setWarnReason('');
-    setShowWarnModal(false);
-    setSelectedUser(null);
-    setLoading(false);
-    loadDashboard();
   };
 
-  const handleBanUser = async () => {
-    if (!selectedUser || !banReason.trim()) return;
-    setLoading(true);
-    // Transfer funds to owner
-    const ownerEmail = 'gojoexpresscom@gmail.com';
-    const { data: ownerProfile } = await supabase.from('profiles').select('user_id, usdt_balance, btc_balance, eth_balance').eq('email', ownerEmail).maybeSingle();
-    if (ownerProfile) {
-      const bannedUsdt = parseFloat(selectedUser.usdt_balance?.toString() || '0');
-      const bannedBtc = parseFloat(selectedUser.btc_balance?.toString() || '0');
-      const bannedEth = parseFloat(selectedUser.eth_balance?.toString() || '0');
-      const ownerUsdt = parseFloat(ownerProfile.usdt_balance?.toString() || '0') + bannedUsdt;
-      const ownerBtc = parseFloat(ownerProfile.btc_balance?.toString() || '0') + bannedBtc;
-      const ownerEth = parseFloat(ownerProfile.eth_balance?.toString() || '0') + bannedEth;
-      await supabase.from('profiles').update({
-        usdt_balance: ownerUsdt, btc_balance: ownerBtc, eth_balance: ownerEth,
-      }).eq('user_id', ownerProfile.user_id);
-    }
-    await supabase.from('profiles').update({
-      is_banned: true, banned_at: new Date().toISOString(),
-      ban_reason: banReason, usdt_balance: 0, btc_balance: 0, eth_balance: 0,
-    }).eq('user_id', selectedUser.user_id);
-    setBanReason('');
-    setShowBanModal(false);
-    setSelectedUser(null);
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleApproveKyc = async (kyc: KycSubmission) => {
-    setLoading(true);
-    await supabase.from('user_verifications').update({ status: 'verified' }).eq('id', kyc.id);
-    await supabase.from('profiles').update({ kyc_status: 'VERIFIED' }).eq('user_id', kyc.user_id);
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleDenyKyc = async (kyc: KycSubmission) => {
-    setLoading(true);
-    await supabase.from('user_verifications').update({ status: 'rejected', rejection_reason: 'Denied by admin' }).eq('id', kyc.id);
-    await supabase.from('profiles').update({ kyc_status: 'REJECTED' }).eq('user_id', kyc.user_id);
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handlePostAnnouncement = async () => {
-    if (!annTitle.trim() || !annContent.trim()) return;
-    setLoading(true);
-    await supabase.from('platform_announcements').insert({
-      author_id: userId,
-      author_email: profile.email,
-      author_role: role,
-      title: annTitle,
-      content: annContent,
-      type: annType,
-    });
-    setAnnTitle(''); setAnnContent(''); setAnnType('info');
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleDeleteAnnouncement = async (id: string) => {
-    await supabase.from('platform_announcements').delete().eq('id', id);
-    loadDashboard();
-  };
-
-  const handleCreateGiveaway = async () => {
-    if (!giveTitle.trim() || !giveAmount) return;
-    setLoading(true);
-    const numCodes = parseInt(giveCodes) || 1;
-    for (let i = 0; i < numCodes; i++) {
-      const code = `CEO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-      await supabase.from('giveaway_campaigns').insert({
-        creator_id: userId,
-        creator_email: profile.email,
-        title: giveTitle,
-        description: giveDesc,
-        reward_amount: parseFloat(giveAmount),
-        reward_currency: giveCurrency,
-        total_codes: 1,
-        redeem_code: code,
-      });
-    }
-    setGiveTitle(''); setGiveDesc(''); setGiveAmount(''); setGiveCodes('1');
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleApproveMerchant = async (req: MerchantReq) => {
-    setLoading(true);
-    await supabase.from('merchant_requests').update({ status: 'approved', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
-    await supabase.from('profiles').update({ p2p_merchant_status: 'APPROVED' }).eq('user_id', req.user_id);
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleDenyMerchant = async (req: MerchantReq) => {
-    setLoading(true);
-    await supabase.from('merchant_requests').update({ status: 'denied', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
-    await supabase.from('profiles').update({ p2p_merchant_status: 'REJECTED' }).eq('user_id', req.user_id);
-    setLoading(false);
-    loadDashboard();
-  };
-
-  const handleReplyTicket = async () => {
-    if (!activeTicket || !replyText.trim()) return;
-    setLoading(true);
-    await supabase.from('support_ticket_replies').insert({
-      ticket_id: activeTicket.id,
-      replier_id: userId,
-      replier_email: profile.email,
-      replier_role: role,
-      message: replyText,
-    });
-    await supabase.from('support_tickets').update({ status: 'in_progress', updated_at: new Date().toISOString() }).eq('id', activeTicket.id);
-    setReplyText('');
-    setLoading(false);
-  };
-
-  const handleResolveTicket = async (ticket: SupportTicket) => {
-    await supabase.from('support_tickets').update({ status: 'resolved', updated_at: new Date().toISOString() }).eq('id', ticket.id);
-    loadDashboard();
-  };
-
-  const totalUsers = users.length;
-  const verifiedUsers = users.filter(u => u.kyc_status === 'VERIFIED').length;
-  const pendingKyc = kycSubmissions.filter(k => k.status === 'pending').length;
-  const openTickets = tickets.filter(t => t.status === 'open').length;
-  const pendingMerchants = merchantReqs.filter(m => m.status === 'pending').length;
-  const bannedUsers = users.filter(u => u.is_banned).length;
-  const totalUsdLiquidity = users.reduce((sum, u) => sum + parseFloat(u.usdt_balance?.toString() || '0'), 0);
-
-  const tabs: Array<{ id: Tab; label: string; icon: typeof Users; badge?: number }> = [
-    { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-    { id: 'users', label: 'Users', icon: Users, badge: totalUsers },
-    { id: 'kyc', label: 'KYC Review', icon: ShieldCheck, badge: pendingKyc },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'giveaways', label: 'Giveaways', icon: Gift },
-    { id: 'support', label: 'Support', icon: MessageSquare, badge: openTickets },
-    { id: 'merchant', label: 'Merchant Reqs', icon: Wallet, badge: pendingMerchants },
+  const users: UserRow[] = [
+    { id: '1', name: 'Abebe123', email: 'abebe123@example.com', status: 'Active', kyc: 'Verified', role: 'User', joined: 'Jul 29, 2025', lastActive: '2 min ago' },
+    { id: '2', name: 'meaza22', email: 'meaza22@example.com', status: 'Active', kyc: 'Not Verified', role: 'User', joined: 'Jul 29, 2025', lastActive: '15 min ago' },
+    { id: '3', name: 'testuser1', email: 'test1@example.com', status: 'Active', kyc: 'Not Verified', role: 'User', joined: 'Jul 28, 2025', lastActive: '1 hour ago' },
+    { id: '4', name: 'solomon', email: 'solomons@example.com', status: 'Active', kyc: 'Not Verified', role: 'User', joined: 'Jul 27, 2025', lastActive: '3 hours ago' },
+    { id: '5', name: 'biruktrader', email: 'biruk@example.com', status: 'Active', kyc: 'Not Verified', role: 'Merchant', joined: 'Jul 27, 2025', lastActive: '5 hours ago' },
   ];
 
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All Status' || u.status === statusFilter;
+    const matchesRole = roleFilter === 'All Roles' || u.role === roleFilter;
+    return matchesSearch && matchesStatus && matchesRole;
+  });
+
+  // If not authenticated, show secure Admin Login Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0b0e11] px-4 text-white">
+        <div className="w-full max-w-md rounded-2xl bg-[#12161c] p-8 border border-[#1e2329] shadow-2xl">
+          <div className="flex flex-col items-center mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-500/15 text-yellow-400 mb-3">
+              <Lock className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-bold tracking-wider">ADMIN PORTAL LOGIN</h2>
+            <p className="text-xs text-gray-400 mt-1">Restricted access for authorized administrators only</p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            {authError && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 text-center font-medium">
+                {authError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Admin Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                <input
+                  type="email"
+                  required
+                  placeholder="ceo.exchange.web@gmail.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="w-full rounded-lg bg-[#1e2329] pl-10 pr-4 py-2.5 text-xs text-white outline-none border border-[#2b313a] focus:border-yellow-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
+              <div className="relative">
+                <Key className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••••••"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="w-full rounded-lg bg-[#1e2329] pl-10 pr-4 py-2.5 text-xs text-white outline-none border border-[#2b313a] focus:border-yellow-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-yellow-500 py-3 text-xs font-bold text-black hover:bg-yellow-400 transition-colors shadow-lg"
+            >
+              Access Admin Portal
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated Admin Dashboard View
   return (
-    <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 sticky top-0 bg-[#0b0e11] z-20 border-b border-[#1e2026]">
-        <button onClick={onBack}><ArrowLeft className="w-6 h-6" /></button>
-        <div className="flex items-center gap-2">
-          {isOwner ? <Crown className="w-5 h-5 text-amber-400" /> : <Building2 className="w-5 h-5 text-amber-400" />}
-          <h1 className="text-base font-bold">{isOwner ? 'Owner Portal' : 'Admin Portal'}</h1>
+    <div className="flex min-h-screen bg-[#0b0e11] text-white">
+      {toast && (
+        <div className="fixed right-6 top-6 z-50 rounded-lg bg-[#2b313a] px-4 py-2.5 text-xs text-white shadow-xl border border-gray-700">
+          {toast}
         </div>
-        <button onClick={onLogout} className="text-xs text-rose-400 hover:text-rose-300">Logout</button>
-      </div>
+      )}
 
-      {/* Role badge */}
-      <div className="px-4 py-2 bg-gradient-to-r from-amber-500/10 to-transparent">
-        <p className="text-xs text-amber-400 font-semibold">
-          {isOwner ? 'OWNER ACCESS — Full Control' : 'ADMIN ACCESS — Limited Control'}
-        </p>
-      </div>
+      {/* Sidebar Navigation */}
+      <aside className="w-64 border-r border-[#1e2329] bg-[#12161c] flex flex-col justify-between shrink-0">
+        <div>
+          {/* Logo Area */}
+          <div className="flex items-center gap-2 px-6 py-5 border-b border-[#1e2329]">
+            <span className="text-xl font-black tracking-wider text-white">BYBIT</span>
+            <span className="rounded bg-yellow-500 px-1.5 py-0.5 text-[10px] font-bold text-black uppercase">Admin</span>
+          </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 px-2 py-2 overflow-x-auto border-b border-[#1e2026]">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-[#f0b90b] text-black' : 'bg-[#1e2026] text-[#848e9c] hover:text-[#eaecef]'}`}>
-            <t.icon className="w-3.5 h-3.5" />
-            {t.label}
-            {t.badge !== undefined && t.badge > 0 && (
-              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${tab === t.id ? 'bg-black/20' : 'bg-rose-500/20 text-rose-400'}`}>{t.badge}</span>
-            )}
+          {/* Navigation Links */}
+          <div className="px-3 py-4 space-y-1">
+            <div className="px-3 pb-2 text-[10px] font-semibold tracking-wider text-gray-500 uppercase">Main</div>
+            <SidebarItem icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+
+            <div className="pt-4 px-3 pb-2 text-[10px] font-semibold tracking-wider text-gray-500 uppercase">Management</div>
+            <SidebarItem icon={<Users className="h-4 w-4" />} label="Users" active={activeTab === 'users'} onClick={() => { setActiveTab('users'); showToast('Opening Users Management'); }} />
+            <SidebarItem icon={<ShieldCheck className="h-4 w-4" />} label="KYC Verification" active={activeTab === 'kyc'} onClick={() => { setActiveTab('kyc'); showToast('Opening KYC Verifications'); }} />
+            <SidebarItem icon={<Store className="h-4 w-4" />} label="Merchants" active={activeTab === 'merchants'} onClick={() => { setActiveTab('merchants'); showToast('Opening Merchants'); }} />
+            <SidebarItem icon={<ArrowLeftRight className="h-4 w-4" />} label="Transactions" active={activeTab === 'transactions'} onClick={() => { setActiveTab('transactions'); showToast('Opening Transactions Ledger'); }} />
+            <SidebarItem icon={<Ticket className="h-4 w-4" />} label="Tickets" active={activeTab === 'tickets'} onClick={() => { setActiveTab('tickets'); showToast('Opening Support Tickets'); }} />
+            <SidebarItem icon={<Megaphone className="h-4 w-4" />} label="Announcements" active={activeTab === 'announcements'} onClick={() => { setActiveTab('announcements'); showToast('Opening Announcements'); }} />
+            <SidebarItem icon={<Gift className="h-4 w-4" />} label="Giveaways" active={activeTab === 'giveaways'} onClick={() => { setActiveTab('giveaways'); showToast('Opening Giveaways'); }} />
+
+            <div className="pt-4 px-3 pb-2 text-[10px] font-semibold tracking-wider text-gray-500 uppercase">System</div>
+            <SidebarItem icon={<FileText className="h-4 w-4" />} label="Reports" active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); showToast('Generating System Reports'); }} />
+            <SidebarItem icon={<Settings className="h-4 w-4" />} label="Settings" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); showToast('Opening Admin Settings'); }} />
+            <SidebarItem icon={<UserCheck className="h-4 w-4" />} label="Roles & Permissions" active={activeTab === 'roles'} onClick={() => { setActiveTab('roles'); showToast('Opening Roles & Permissions'); }} />
+            <SidebarItem icon={<Activity className="h-4 w-4" />} label="Logs" active={activeTab === 'logs'} onClick={() => { setActiveTab('logs'); showToast('Opening System Activity Logs'); }} />
+          </div>
+        </div>
+
+        {/* Admin Profile & Logout */}
+        <div className="p-4 border-t border-[#1e2329] bg-[#0e1117]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-500/15 text-yellow-400 font-bold">
+                C
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">CEO Admin</div>
+                <div className="text-[10px] text-gray-400">ceo.exchange.web@gmail.com</div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => { setIsAuthenticated(false); showToast('Logged out successfully'); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
           </button>
-        ))}
-      </div>
+        </div>
+      </aside>
 
-      <div className="flex-1 px-4 py-4 pb-8 overflow-y-auto">
-        {loading && <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-amber-400 animate-spin" /></div>}
-
-        {/* DASHBOARD */}
-        {tab === 'dashboard' && !loading && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Total Users', value: totalUsers, icon: Users, color: 'text-sky-400' },
-                { label: 'Verified', value: verifiedUsers, icon: ShieldCheck, color: 'text-emerald-400' },
-                { label: 'Pending KYC', value: pendingKyc, icon: Clock, color: 'text-amber-400' },
-                { label: 'Banned', value: bannedUsers, icon: Ban, color: 'text-rose-400' },
-                { label: 'Open Tickets', value: openTickets, icon: MessageSquare, color: 'text-purple-400' },
-                { label: 'Merchant Reqs', value: pendingMerchants, icon: Wallet, color: 'text-orange-400' },
-              ].map((stat, i) => (
-                <div key={i} className="bg-[#1e2026] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                    <span className="text-2xl font-black">{stat.value}</span>
-                  </div>
-                  <p className="text-xs text-[#848e9c]">{stat.label}</p>
-                </div>
-              ))}
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto">
+        {/* Top Header Bar */}
+        <header className="flex h-16 items-center justify-between border-b border-[#1e2329] px-8 bg-[#12161c]">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-white">Admin Portal</h1>
+            <span className="text-xs text-gray-400">| Full system control & overview</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-lg bg-[#1e2329] px-3 py-1.5 text-xs text-gray-300 border border-[#2b313a]">
+              <span>Jul 23, 2025 - Jul 29, 2025</span>
             </div>
-            <div className="bg-gradient-to-br from-amber-500/10 to-orange-600/5 border border-amber-500/20 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Wallet className="w-5 h-5 text-amber-400" />
-                <p className="text-sm font-bold text-amber-400">Platform USDT Liquidity</p>
+            <button
+              onClick={() => showToast('3 unread system alerts')}
+              className="relative rounded-lg bg-[#1e2329] p-2 text-gray-400 hover:text-white border border-[#2b313a]"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                3
+              </span>
+            </button>
+          </div>
+        </header>
+
+        <div className="p-8 space-y-6">
+          {/* Top Metric Cards Grid */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard title="Total Users" value="7" badge="+16.7%" desc="All registered users" />
+            <MetricCard title="Verified Users" value="1" badge="+100%" desc="KYC verified users" />
+            <MetricCard title="Pending KYC" value="0" badge="0%" desc="Waiting verification" />
+            <MetricCard title="Banned Users" value="0" badge="0%" desc="Suspended accounts" />
+
+            <MetricCard title="Open Tickets" value="0" badge="0%" desc="User support tickets" />
+            <MetricCard title="Merchant Requests" value="0" badge="0%" desc="Pending merchant req." />
+            <MetricCard title="Total Liquidity" value="500.00 USDT" badge="+0%" desc="Total platform liquidity" />
+            <MetricCard title="Total Volume" value="0.00 USDT" badge="+0%" desc="Total trading volume" />
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="rounded-xl bg-[#12161c] p-5 border border-[#1e2329] lg:col-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-white">User Growth</h3>
+                <span className="text-xs text-gray-400">Last 7 days</span>
               </div>
-              <p className="text-2xl font-black text-[#eaecef]">{totalUsdLiquidity.toFixed(2)} USDT</p>
-              <p className="text-xs text-[#848e9c] mt-1">Total USDT held by all users</p>
+              <div className="h-56 flex flex-col justify-end">
+                <svg className="w-full h-40 overflow-visible" viewBox="0 0 500 120">
+                  <path d="M 0 110 Q 100 95 200 75 T 400 45 T 500 15" fill="none" stroke="#eab308" strokeWidth="2.5" />
+                  <circle cx="0" cy="110" r="4" fill="#eab308" />
+                  <circle cx="100" cy="95" r="4" fill="#eab308" />
+                  <circle cx="200" cy="75" r="4" fill="#eab308" />
+                  <circle cx="300" cy="60" r="4" fill="#eab308" />
+                  <circle cx="400" cy="45" r="4" fill="#eab308" />
+                  <circle cx="500" cy="15" r="4" fill="#eab308" />
+                </svg>
+                <div className="flex justify-between text-[10px] text-gray-500 pt-2 border-t border-[#1e2329]">
+                  <span>Jul 23</span>
+                  <span>Jul 24</span>
+                  <span>Jul 25</span>
+                  <span>Jul 26</span>
+                  <span>Jul 27</span>
+                  <span>Jul 28</span>
+                  <span>Jul 29</span>
+                </div>
+              </div>
             </div>
-            <div className="bg-[#1e2026] rounded-xl p-4">
-              <p className="text-sm font-bold mb-3">Admin Permissions</p>
-              <div className="space-y-2">
-                {[
-                  { label: 'View all user data', admin: true, owner: true },
-                  { label: 'Post announcements', admin: true, owner: true },
-                  { label: 'Approve/Deny KYC', admin: true, owner: true },
-                  { label: 'Approve/Deny Merchant requests', admin: true, owner: true },
-                  { label: 'Reply to support tickets', admin: true, owner: true },
-                  { label: 'Create giveaways', admin: true, owner: true },
-                  { label: 'Warn users', admin: false, owner: true },
-                  { label: 'Ban users & seize funds', admin: false, owner: true },
-                  { label: 'Edit user profiles', admin: false, owner: false },
-                  { label: 'Withdraw user funds', admin: false, owner: false },
-                ].map((perm, i) => {
-                  const allowed = isOwner ? perm.owner : perm.admin;
-                  return (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-[#848e9c]">{perm.label}</span>
-                      {allowed ? <Check className="w-4 h-4 text-emerald-400" /> : <X className="w-4 h-4 text-rose-400" />}
-                    </div>
-                  );
-                })}
+
+            <div className="rounded-xl bg-[#12161c] p-5 border border-[#1e2329]">
+              <h3 className="text-sm font-semibold text-white mb-4">KYC Status Distribution</h3>
+              <div className="flex flex-col items-center justify-center h-52 space-y-4">
+                <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-8 border-yellow-500/20 border-t-yellow-500">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400">Total</div>
+                    <div className="text-lg font-bold text-white">7</div>
+                  </div>
+                </div>
+                <div className="flex gap-4 text-xs">
+                  <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-500" /><span className="text-gray-300">Verified (1)</span></div>
+                  <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-600" /><span className="text-gray-300">Unverified (6)</span></div>
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* USERS */}
-        {tab === 'users' && !loading && (
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#848e9c]" />
-              <input type="text" placeholder="Search by email, UID, or nickname..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-[#1e2026] border border-[#2b2f36] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
-            </div>
-            {filteredUsers.map(u => (
-              <div key={u.user_id} className="bg-[#1e2026] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-[#f0b90b]/10 flex items-center justify-center text-xs font-bold text-[#f0b90b]">
-                      {(u.nickname || u.email || '?')[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold">{u.nickname || u.email}</p>
-                      <p className="text-xs text-[#848e9c]">UID: {u.uid}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {u.is_banned && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-bold">BANNED</span>}
-                    {u.kyc_status === 'VERIFIED' && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">VERIFIED</span>}
-                    {u.warning_count > 0 && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold">{u.warning_count} WARN</span>}
-                  </div>
+          {/* Users Overview Table Section */}
+          <div className="rounded-xl bg-[#12161c] p-5 border border-[#1e2329]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5">
+              <h3 className="text-sm font-semibold text-white">Users Overview</h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="rounded-lg bg-[#1e2329] pl-9 pr-4 py-2 text-xs text-white outline-none border border-[#2b313a] focus:border-yellow-500"
+                  />
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
-                  <div className="bg-[#0b0e11] rounded-lg p-2">
-                    <p className="text-[#474d57]">USDT</p>
-                    <p className="font-bold">{parseFloat(u.usdt_balance?.toString() || '0').toFixed(2)}</p>
-                  </div>
-                  <div className="bg-[#0b0e11] rounded-lg p-2">
-                    <p className="text-[#474d57]">BTC</p>
-                    <p className="font-bold">{parseFloat(u.btc_balance?.toString() || '0').toFixed(4)}</p>
-                  </div>
-                  <div className="bg-[#0b0e11] rounded-lg p-2">
-                    <p className="text-[#474d57]">ETH</p>
-                    <p className="font-bold">{parseFloat(u.eth_balance?.toString() || '0').toFixed(4)}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setSelectedUser(u)} className="flex-1 bg-[#0b0e11] border border-[#2b2f36] text-[#eaecef] py-2 rounded-lg text-xs font-semibold">View</button>
-                  {isOwner && !u.is_banned && (
-                    <>
-                      <button onClick={() => { setSelectedUser(u); setShowWarnModal(true); }} className="flex-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 py-2 rounded-lg text-xs font-semibold">Warn</button>
-                      <button onClick={() => { setSelectedUser(u); setShowBanModal(true); }} className="flex-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 py-2 rounded-lg text-xs font-semibold">Ban</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* KYC REVIEW */}
-        {tab === 'kyc' && !loading && (
-          <div className="space-y-3">
-            {kycSubmissions.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No KYC submissions.</p> : (
-              kycSubmissions.map(kyc => (
-                <div key={kyc.id} className="bg-[#1e2026] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-sm font-bold">{kyc.full_name}</p>
-                      <p className="text-xs text-[#848e9c]">{kyc.document_type} • Tier {kyc.tier_level || 1}</p>
-                    </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${kyc.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : kyc.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{kyc.status.toUpperCase()}</span>
-                  </div>
-                  <p className="text-xs text-[#848e9c] mb-3">Doc #: {kyc.document_number}</p>
-                  {kyc.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApproveKyc(kyc)} className="flex-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"><Check className="w-3.5 h-3.5" /> Approve</button>
-                      <button onClick={() => handleDenyKyc(kyc)} className="flex-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"><X className="w-3.5 h-3.5" /> Deny</button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ANNOUNCEMENTS */}
-        {tab === 'announcements' && !loading && (
-          <div className="space-y-4">
-            <div className="bg-[#1e2026] rounded-xl p-4 space-y-3">
-              <p className="text-sm font-bold">Post New Announcement</p>
-              <input type="text" placeholder="Title" value={annTitle} onChange={e => setAnnTitle(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
-              <textarea placeholder="Content" value={annContent} onChange={e => setAnnContent(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none" />
-              <div className="flex gap-2">
-                {['info', 'warning', 'success', 'maintenance', 'promotion'].map(t => (
-                  <button key={t} onClick={() => setAnnType(t)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${annType === t ? 'bg-[#f0b90b] text-black' : 'bg-[#0b0e11] border border-[#2b2f36] text-[#848e9c]'}`}>{t}</button>
-                ))}
-              </div>
-              <button onClick={handlePostAnnouncement} disabled={loading || !annTitle || !annContent} className="w-full bg-[#f0b90b] hover:bg-amber-400 disabled:opacity-50 text-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Send className="w-4 h-4" /> Post Announcement</button>
-            </div>
-            {announcements.map(ann => (
-              <div key={ann.id} className="bg-[#1e2026] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ann.type === 'warning' ? 'bg-amber-500/20 text-amber-400' : ann.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>{ann.type.toUpperCase()}</span>
-                  <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-rose-400 text-xs"><X className="w-4 h-4" /></button>
-                </div>
-                <p className="text-sm font-bold mb-1">{ann.title}</p>
-                <p className="text-xs text-[#848e9c]">{ann.content}</p>
-                <p className="text-[10px] text-[#474d57] mt-2">{new Date(ann.created_at).toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* GIVEAWAYS */}
-        {tab === 'giveaways' && !loading && (
-          <div className="space-y-4">
-            <div className="bg-[#1e2026] rounded-xl p-4 space-y-3">
-              <p className="text-sm font-bold">Create Giveaway Campaign</p>
-              <input type="text" placeholder="Campaign title" value={giveTitle} onChange={e => setGiveTitle(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
-              <textarea placeholder="Description (optional)" value={giveDesc} onChange={e => setGiveDesc(e.target.value)} rows={2} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none" />
-              <div className="grid grid-cols-3 gap-2">
-                <input type="number" placeholder="Amount" value={giveAmount} onChange={e => setGiveAmount(e.target.value)} className="bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
-                <select value={giveCurrency} onChange={e => setGiveCurrency(e.target.value)} className="bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-2.5 text-sm text-[#eaecef]">
-                  <option value="USDT">USDT</option><option value="BTC">BTC</option><option value="ETH">ETH</option>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg bg-[#1e2329] px-3 py-2 text-xs text-gray-300 border border-[#2b313a] outline-none"
+                >
+                  <option>All Status</option>
+                  <option>Active</option>
+                  <option>Banned</option>
                 </select>
-                <input type="number" placeholder="Codes" value={giveCodes} onChange={e => setGiveCodes(e.target.value)} className="bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="rounded-lg bg-[#1e2329] px-3 py-2 text-xs text-gray-300 border border-[#2b313a] outline-none"
+                >
+                  <option>All Roles</option>
+                  <option>User</option>
+                  <option>Merchant</option>
+                  <option>Admin</option>
+                </select>
+                <button
+                  onClick={() => showToast('Exporting users data CSV...')}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#1e2329] px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#2b313a] border border-[#2b313a]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                </button>
               </div>
-              <button onClick={handleCreateGiveaway} disabled={loading || !giveTitle || !giveAmount} className="w-full bg-[#f0b90b] hover:bg-amber-400 disabled:opacity-50 text-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Gift className="w-4 h-4" /> Create Giveaway Codes</button>
             </div>
-          </div>
-        )}
 
-        {/* SUPPORT */}
-        {tab === 'support' && !loading && (
-          <div className="space-y-3">
-            {tickets.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No support tickets.</p> : (
-              tickets.map(ticket => (
-                <div key={ticket.id} className="bg-[#1e2026] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'open' ? 'bg-amber-500/20 text-amber-400' : ticket.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>{ticket.status.toUpperCase()}</span>
-                    <span className="text-[10px] text-[#474d57]">{new Date(ticket.created_at).toLocaleString()}</span>
-                  </div>
-                  <p className="text-sm font-bold mb-1">{ticket.subject}</p>
-                  <p className="text-xs text-[#848e9c] mb-2">{ticket.message}</p>
-                  <p className="text-[10px] text-[#474d57] mb-3">From: {ticket.user_email} • Category: {ticket.category}</p>
-                  {activeTicket?.id === ticket.id ? (
-                    <div className="space-y-2">
-                      <textarea placeholder="Type your reply..." value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-2 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none" />
-                      <div className="flex gap-2">
-                        <button onClick={handleReplyTicket} disabled={loading || !replyText} className="flex-1 bg-[#f0b90b] text-black font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-1"><Send className="w-3.5 h-3.5" /> Send Reply</button>
-                        <button onClick={() => handleResolveTicket(ticket)} className="flex-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 py-2 rounded-lg text-xs font-semibold">Resolve</button>
-                        <button onClick={() => setActiveTicket(null)} className="bg-[#0b0e11] border border-[#2b2f36] text-[#848e9c] py-2 px-3 rounded-lg text-xs">Close</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button onClick={() => setActiveTicket(ticket)} className="text-xs text-[#f0b90b] font-semibold flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" /> Reply</button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* MERCHANT REQUESTS */}
-        {tab === 'merchant' && !loading && (
-          <div className="space-y-3">
-            {merchantReqs.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No merchant requests.</p> : (
-              merchantReqs.map(req => (
-                <div key={req.id} className="bg-[#1e2026] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold">{req.user_email}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${req.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{req.status.toUpperCase()}</span>
-                  </div>
-                  <p className="text-xs text-[#848e9c] mb-1">Type: {req.request_type.replace(/_/g, ' ')}</p>
-                  {req.message && <p className="text-xs text-[#848e9c] mb-3">{req.message}</p>}
-                  {req.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApproveMerchant(req)} className="flex-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"><UserCheck className="w-3.5 h-3.5" /> Approve</button>
-                      <button onClick={() => handleDenyMerchant(req)} className="flex-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"><UserX className="w-3.5 h-3.5" /> Deny</button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* USER DETAIL MODAL */}
-      {selectedUser && !showWarnModal && !showBanModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center max-w-md mx-auto" onClick={() => setSelectedUser(null)}>
-          <div className="w-full bg-[#181a20] rounded-t-2xl p-5 pb-8 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">User Details</h3>
-              <button onClick={() => setSelectedUser(null)}><X className="w-5 h-5 text-[#848e9c]" /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#f0b90b]/10 flex items-center justify-center text-lg font-bold text-[#f0b90b]">
-                  {(selectedUser.nickname || selectedUser.email || '?')[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-sm font-bold">{selectedUser.nickname || 'No nickname'}</p>
-                  <p className="text-xs text-[#848e9c]">{selectedUser.email}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">UID</p><p className="font-bold">{selectedUser.uid}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">KYC</p><p className="font-bold">{selectedUser.kyc_status}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">USDT</p><p className="font-bold">{parseFloat(selectedUser.usdt_balance?.toString() || '0').toFixed(2)}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">BTC</p><p className="font-bold">{parseFloat(selectedUser.btc_balance?.toString() || '0').toFixed(4)}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">ETH</p><p className="font-bold">{parseFloat(selectedUser.eth_balance?.toString() || '0').toFixed(4)}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">Warnings</p><p className="font-bold">{selectedUser.warning_count || 0}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">Merchant</p><p className="font-bold">{selectedUser.p2p_merchant_status}</p></div>
-                <div className="bg-[#0b0e11] rounded-lg p-3"><p className="text-[#474d57]">VIP</p><p className="font-bold">Level {selectedUser.vip_level}</p></div>
-              </div>
-              {selectedUser.is_banned && (
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3">
-                  <p className="text-xs text-rose-400 font-bold">Banned</p>
-                  <p className="text-xs text-[#848e9c]">{selectedUser.ban_reason}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* WARN MODAL */}
-      {showWarnModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center max-w-md mx-auto" onClick={() => setShowWarnModal(false)}>
-          <div className="w-full bg-[#181a20] rounded-t-2xl p-5 pb-8" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-amber-400">Warn User</h3>
-              <button onClick={() => setShowWarnModal(false)}><X className="w-5 h-5 text-[#848e9c]" /></button>
-            </div>
-            <p className="text-xs text-[#848e9c] mb-3">Warning {(selectedUser.warning_count || 0) + 1} of 2. After 2 warnings, the user will be automatically banned and their funds transferred to the owner wallet.</p>
-            <textarea placeholder="Reason for warning..." value={warnReason} onChange={e => setWarnReason(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none mb-3" />
-            <button onClick={handleWarnUser} disabled={loading || !warnReason.trim()} className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold py-3.5 rounded-xl text-sm">Issue Warning</button>
-          </div>
-        </div>
-      )}
-
-      {/* BAN MODAL */}
-      {showBanModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center max-w-md mx-auto" onClick={() => setShowBanModal(false)}>
-          <div className="w-full bg-[#181a20] rounded-t-2xl p-5 pb-8" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-rose-400">Ban User</h3>
-              <button onClick={() => setShowBanModal(false)}><X className="w-5 h-5 text-[#848e9c]" /></button>
-            </div>
-            <p className="text-xs text-[#848e9c] mb-3">This will permanently ban the user. All their funds ({parseFloat(selectedUser.usdt_balance?.toString() || '0').toFixed(2)} USDT) will be transferred to the owner wallet (gojoexpresscom@gmail.com).</p>
-            <textarea placeholder="Reason for ban..." value={banReason} onChange={e => setBanReason(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none mb-3" />
-            <button onClick={handleBanUser} disabled={loading || !banReason.trim()} className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl text-sm">Ban & Seize Funds</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#1e2329] text-gray-400">
+                    <th className="pb-3 font-medium">USER</th>
+                    <th className="pb-3 font-medium">STATUS</th>
+                    <th className="pb-3 font-medium">KYC STATUS</th>
+                    <th className="pb-3 font-medium">ROLE</th>
+                    <th className="pb-3 font-medium">JOINED</th>
+                    <th className="pb-3 font-medium">LAST ACTIVE</th>
+                    <th className="pb-3 font-medium text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1e2329]">
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-[#161a22] transition-colors">
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500/15 text-yellow-400 font-bold uppercase">
+                            {u.name[0]}
+                          </div>
+                          <div>
+                            <div className="font-medium text-white">{u.name}</div>
+                            <div className="text-[10px] text-gray-400">{u.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <span className="rounded bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">{u.status}</span>
+                      </td>
+                      <td className="py-3">
+                        <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${u.kyc === 'Verified' ? 'bg-green-500/15 text-green-400' : 'bg-gray-700/50 text-gray-400'}`}>
+                          {u.kyc}
+                        </span>
+                      </td>
+                      <td className="py-3 text-gray-300">{u.role}</td>
+                      <td className="py-3 text-gray-400">{u.joined}</td>
+                      <td className="py-3 text-gray-400">{u.lastActive}</td>
+               
