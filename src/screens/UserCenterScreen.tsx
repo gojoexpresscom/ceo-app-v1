@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import {
   ArrowLeft, UserCircle, Shield, KeyRound, Lock, Smartphone,
-  Clock, Wallet, TrendingUp, Bell, Mail, Globe, Moon, Sun,
-  HelpCircle, MessageSquare, Info, Trash2, ThumbsUp, LogOut,
-  ChevronRight, Check, Copy, BadgeCheck, Star, Percent, Users, Send, Link
+  Clock, Wallet, TrendingUp, Mail, Globe, Moon, Sun,
+  LogOut, ChevronRight, Check, Copy, BadgeCheck, Star, Percent, Users, Send, Link
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import KYCModal from '@/components/modals/KYCModal';
@@ -398,5 +397,7 @@ export default function UserCenterScreen({ userId, profile, onBack, onLogout, on
                 <option value="spot">Spot Account</option>
               </select>
             </div>
+          </div>
+        )}
 
-      
+        {/* ============ GENERAL ====
