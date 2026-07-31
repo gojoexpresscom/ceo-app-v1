@@ -13,7 +13,7 @@ export type Profile = {
   usdt_balance: number;
   btc_balance: number;
   eth_balance: number;
-  kyc_status: 'UNVERIFIED' | 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED';
+  kyc_status: 'UNVERIFIED' | 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED';
   vip_level: number;
   uid: string;
   security_level: string;
@@ -51,6 +51,11 @@ export type Profile = {
   time_zone?: string;
   web3_wallet_address?: string;
   created_at: string;
+  role?: string;
+  is_banned?: boolean;
+  banned_at?: string;
+  ban_reason?: string;
+  warning_count?: number;
 };
 
 export type P2POrder = {
@@ -91,3 +96,4 @@ export type MarketTicker = {
   change: number;
   volume: string;
 };
+
