@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Home, TrendingUp, Wallet, User, Gift, Plus, Bell, Menu, Headphones, X, Mail, MessageCircle, Search } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, TELEGRAM_COMMUNITY } from '@/config/constants';
@@ -22,11 +22,9 @@ import InviteFriendsModal from '@/components/modals/InviteFriendsModal';
 import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
 import { PlatformAlertHost } from '@/components/modals/PlatformAlert';
-import AdminPanelScreen from '@/screens/AdminPanelScreen';
-import { isAdminEmail, isOwnerEmail } from '@/lib/auth';
 
 type Tab = 'home' | 'markets' | 'assets' | 'earn' | 'profile';
-type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox' | 'adminPanel';
+type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox';
 
 export default function App() {
   const [session, setSession] = useState<{ user: { id: string; email?: string } } | null>(null);
@@ -235,11 +233,6 @@ export default function App() {
 
   const usdtBalance = parseFloat(profile.usdt_balance.toString());
   const userId = profile.user_id || session?.user?.id || '';
-
-  // Redirect admin/owner to admin panel
-  if (isAdminEmail(profile.email) || isOwnerEmail(profile.email)) {
-    return <AdminPanelScreen userId={userId} profile={profile} onBack={() => { setScreen('main'); }} onLogout={handleLogout} />;
-  }
 
   // Full-screen trading view
   if (screen === 'trading' && tradePair) {
@@ -490,7 +483,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
 }
 
 // Inline Assets screen
-function AssetsScreen({ usdtBalance, onConvert }: { usdtBalance: number; onDeposit: () => void; onConvert: () => void }) {
+function AssetsScreen({ usdtBalance, onDeposit, onConvert }: { usdtBalance: number; onDeposit: () => void; onConvert: () => void }) {
   const [assetTab, setAssetTab] = useState<'spot' | 'fiat' | 'futures' | 'options' | 'margin' | 'earn' | 'funding'>('spot');
 
   const tabs = [
@@ -648,15 +641,16 @@ function MarketsView({ onTrade }: { onTrade: (symbol: string, binanceSymbol: str
 
   useEffect(() => {
     const ws = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+    const pairMap = new Map(PAIRS.map(p => [p.binance, p]));
     ws.onmessage = (e) => {
       try {
-        const arr = JSON.parse(e.data) as Array<{ s: string; c: string; P: string; v: string }>;
+        const arr = JSON.parse(e.data);
         setTickers(prev => {
           const map = new Map(prev.map(t => [t.binance, t]));
           const updated: typeof prev = [];
           for (const p of PAIRS) {
             const existing = map.get(p.binance) || p;
-            const live = arr.find((x) => x.s === p.binance);
+            const live = arr.find((x: any) => x.s === p.binance);
             if (live) {
               updated.push({ ...existing, price: parseFloat(live.c), change: parseFloat(live.P), volume: (parseFloat(live.v) * parseFloat(live.c) / 1_000_000).toFixed(1) + 'M' });
             } else {
@@ -665,18 +659,17 @@ function MarketsView({ onTrade }: { onTrade: (symbol: string, binanceSymbol: str
           }
           return updated;
         });
-      } catch { /* ignore parse errors */ }
+      } catch {}
     };
     ws.onerror = () => ws.close();
     setTickers(PAIRS);
     return () => ws.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleFav = (sym: string) => {
     setFavorites(prev => {
       const n = new Set(prev);
-      if (n.has(sym)) n.delete(sym); else n.add(sym);
+      n.has(sym) ? n.delete(sym) : n.add(sym);
       localStorage.setItem('mkt_favs', JSON.stringify([...n]));
       return n;
     });

@@ -1,4 +1,4 @@
-import { X, Wallet } from 'lucide-react';
+import { X, TrendingUp, Wallet } from 'lucide-react';
 
 type Props = { kycStatus: string; onClose: () => void };
 

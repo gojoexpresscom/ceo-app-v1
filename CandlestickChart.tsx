@@ -32,9 +32,9 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const ma7Ref = useRef<ISeriesApi<'Line'> | null>(null);
   const ma14Ref = useRef<ISeriesApi<'Line'> | null>(null);
-  const priceLinesRef = useRef<Map<string, unknown>>(new Map());
+  const priceLinesRef = useRef<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [showMA] = useState(true);
+  const [showMA, setShowMA] = useState(true);
   const [activeTool, setActiveTool] = useState<Tool>('none');
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [pendingDraw, setPendingDraw] = useState<Partial<Drawing> | null>(null);
@@ -49,8 +49,8 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
     candles.map((_, i) => {
       if (i < period - 1) return null;
       const avg = candles.slice(i - period + 1, i + 1).reduce((s, c) => s + c.close, 0) / period;
-      return { time: candles[i].time as any, value: avg };
-    }).filter((item): item is { time: any; value: number } => item !== null);
+      return { time: candles[i].time, value: avg };
+    }).filter(Boolean);
 
   const fetchAndRender = useCallback(async (sym: string, intv: string) => {
     setLoading(true);
@@ -61,7 +61,7 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
         apiUrl,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
       ];
-      let raw: unknown[] | null = null;
+      let raw: any = null;
       for (const url of endpoints) {
         try {
           const res = await fetch(url);
@@ -69,22 +69,19 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
         } catch { /* try next */ }
       }
       if (!raw) throw new Error('API error');
-      const candles: Candle[] = raw.map((k: unknown) => {
-        const item = k as unknown[];
-        return {
-          time: Math.floor((item[0] as number) / 1000),
-          open: parseFloat(item[1] as string),
-          high: parseFloat(item[2] as string),
-          low: parseFloat(item[3] as string),
-          close: parseFloat(item[4] as string),
-        };
-      });
+      const candles: Candle[] = raw.map((k: unknown[]) => ({
+        time: Math.floor((k[0] as number) / 1000),
+        open: parseFloat(k[1] as string),
+        high: parseFloat(k[2] as string),
+        low: parseFloat(k[3] as string),
+        close: parseFloat(k[4] as string),
+      }));
       candlesRef.current = candles;
       if (candleSeriesRef.current) {
-        candleSeriesRef.current.setData(candles as any);
+        candleSeriesRef.current.setData(candles);
         if (showMA) {
-          ma7Ref.current?.setData(calcMA(candles, 7) as any);
-          ma14Ref.current?.setData(calcMA(candles, 14) as any);
+          ma7Ref.current?.setData(calcMA(candles, 7));
+          ma14Ref.current?.setData(calcMA(candles, 14));
         }
         chartRef.current?.timeScale().fitContent();
       }
@@ -196,16 +193,15 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
     return () => { ro.disconnect(); chart.remove(); };
   }, []);
 
+  // (click handler uses refs — no re-subscription needed)
+
   // Render drawings as price lines
   useEffect(() => {
     if (!candleSeriesRef.current || !chartRef.current) return;
 
     // Clear existing price lines
     priceLinesRef.current.forEach((pl) => {
-      try { 
-        // @ts-ignore
-        candleSeriesRef.current?.removePriceLine(pl); 
-      } catch { /* ignore */ }
+      try { candleSeriesRef.current?.removePriceLine(pl); } catch {}
     });
     priceLinesRef.current.clear();
 
@@ -256,6 +252,9 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
           priceLinesRef.current.set(`${draw.id}-target`, pl2);
         }
       } else if (draw.type === 'vertical' && draw.time) {
+        // Vertical lines are drawn as a line series with a single vertical segment
+        // lightweight-charts doesn't support vertical lines directly, so we use a line series
+        // with the same value at the given time
         const vl = chartRef.current.addLineSeries({
           color: '#f0b90b',
           lineWidth: 1,
@@ -268,8 +267,8 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
           const min = Math.min(...candles.map(c => c.low));
           const max = Math.max(...candles.map(c => c.high));
           vl.setData([
-            { time: draw.time as any, value: min },
-            { time: (draw.time + 1) as any, value: max },
+            { time: draw.time, value: min },
+            { time: draw.time + 1, value: max },
           ]);
         }
         priceLinesRef.current.set(`${draw.id}-vline`, vl);
@@ -300,8 +299,10 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
     fetchAndRender(symbol, interval);
   }, [symbol, interval, fetchAndRender]);
 
+  // Update last candle with live price
   useEffect(() => {
     if (!currentPrice || !candleSeriesRef.current) return;
+    // No-op: lightweight-charts doesn't expose easy last candle update without full data
   }, [currentPrice]);
 
   const clearAllDrawings = () => {
@@ -407,5 +408,4 @@ export default function CandlestickChart({ symbol, interval, currentPrice }: Pro
       <div ref={containerRef} />
     </div>
   );
-            }
-        
+}

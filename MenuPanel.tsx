@@ -3,7 +3,7 @@ import { SUPPORT_WHATSAPP, TELEGRAM_COMMUNITY } from '@/config/constants';
 
 function isRunningAsApp(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as Record<string, unknown>).standalone === true;
+  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
 }
 
 type Props = { onClose: () => void; onNavigate: (screen: string) => void };

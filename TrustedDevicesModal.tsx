@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Smartphone, Globe, Trash2 } from 'lucide-react';
+import { X, Smartphone, Globe, Trash2, AlertCircle, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Device = { id: string; device_name: string; device_type: string; ip_address: string; last_login: string; is_current: boolean };

@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import {
   Shield, BadgeCheck, AlertTriangle, ChevronRight, LogOut, TrendingUp,
-  KeyRound, Lock, Gift, Headphones, Globe, ChevronDown, Clock, FlagCircle, X, Send, Loader2,
+  KeyRound, Lock, Wallet, Coins, Gift, Headphones, Globe, ChevronDown, Clock,
 } from 'lucide-react';
 import { EARN_PRODUCTS, SUPPORT_EMAIL } from '@/config/constants';
 import type { Profile } from '@/lib/supabase';
-import { supabase } from '@/lib/supabase';
 import EarnModal from '@/components/modals/EarnModal';
 import KYCModal from '@/components/modals/KYCModal';
 import SecurityModal from '@/components/modals/SecurityModal';
@@ -18,23 +17,17 @@ type Props = {
   onOpenSecurity: (type: 'security' | 'antiphishing' | 'password' | 'passcode') => void;
   onSubscribeEarn: (amount: number) => void;
   onLogout: () => void;
-  onProfileUpdate?: (updates: Partial<Profile>) => void;
 };
 
 type Tab = 'assets' | 'earn' | 'profile' | 'security';
 type AssetTab = 'spot' | 'fiat' | 'futures' | 'options' | 'margin' | 'earn' | 'funding';
 
-export default function ProfileScreen({ profile, usdtBalance, userId, onSubscribeEarn, onLogout, onProfileUpdate }: Props) {
+export default function ProfileScreen({ profile, usdtBalance, userId, onOpenKyc, onOpenSecurity, onSubscribeEarn, onLogout }: Props) {
   const [tab, setTab] = useState<Tab>('assets');
   const [assetTab, setAssetTab] = useState<AssetTab>('spot');
   const [selectedEarn, setSelectedEarn] = useState<{ coin: string; apy: string; type: string; minAmount: number } | null>(null);
   const [showKyc, setShowKyc] = useState(false);
   const [securityModal, setSecurityModal] = useState<'security' | 'antiphishing' | 'password' | 'passcode' | null>(null);
-  const [showReport, setShowReport] = useState(false);
-  const [reportText, setReportText] = useState('');
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportSent, setReportSent] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
 
   const kycBadge = {
     VERIFIED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', label: 'Verified', icon: BadgeCheck },
@@ -51,30 +44,6 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
   ];
 
   const totalValue = usdtBalance + parseFloat((profile.btc_balance || 0).toString()) * 67000 + parseFloat((profile.eth_balance || 0).toString()) * 3500;
-
-  // Check if user is locked/reported
-  useState(() => {
-    supabase.from('profiles').select('is_locked, lock_reason').eq('user_id', userId).maybeSingle().then(({ data }) => {
-      if (data?.is_locked) setIsLocked(true);
-    });
-  });
-
-  const submitReport = async () => {
-    if (!reportText.trim()) return;
-    setReportLoading(true);
-    await supabase.from('support_tickets').insert({
-      user_id: userId,
-      user_email: profile.email,
-      subject: 'User Report / Support Request',
-      message: reportText,
-      category: 'report',
-      status: 'open',
-    });
-    setReportLoading(false);
-    setReportSent(true);
-    setReportText('');
-    setTimeout(() => { setShowReport(false); setReportSent(false); }, 2500);
-  };
 
   return (
     <div className="space-y-4">
@@ -320,6 +289,7 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
       {/* Profile tab */}
       {tab === 'profile' && (
         <div className="space-y-3">
+          {/* KYC card */}
           {profile.kyc_status !== 'VERIFIED' && (
             <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
               <div className="flex items-start gap-3">
@@ -335,12 +305,12 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
             </div>
           )}
 
+          {/* Menu items */}
           {[
             { icon: BadgeCheck, label: 'Identity Verification', desc: kycBadge.label, color: 'text-sky-400', action: () => setShowKyc(true) },
             { icon: Gift, label: 'Rewards Hub', desc: 'Claim rewards and bonuses', color: 'text-amber-400' },
             { icon: Globe, label: 'Language', desc: profile.preferred_language, color: 'text-slate-400' },
             { icon: Headphones, label: '24/7 Support', desc: SUPPORT_EMAIL, color: 'text-emerald-400' },
-            { icon: FlagCircle, label: 'Report a Problem', desc: 'Send a report in any language', color: 'text-rose-400', action: () => setShowReport(true) },
           ].map(item => (
             <button
               key={item.label}
@@ -356,16 +326,7 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
             </button>
           ))}
 
-          {isLocked && (
-            <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-center gap-3">
-              <Lock className="w-5 h-5 text-rose-400 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-rose-400">Account Under Review</p>
-                <p className="text-xs text-slate-400">Your account has been reported and is under investigation. Some features may be restricted until resolved.</p>
-              </div>
-            </div>
-          )}
-
+          {/* Logout */}
           <button
             onClick={onLogout}
             className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-400 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-rose-500/20 transition-colors"
@@ -384,5 +345,77 @@ export default function ProfileScreen({ profile, usdtBalance, userId, onSubscrib
               <h3 className="text-sm font-semibold text-slate-200">Account Security</h3>
             </div>
             <div className="space-y-2">
-              {[
-                { label: 'Login Password', desc: 'Protect your account with a secure password', action: () => setSecurityModal('password') },
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm text-slate-300">Security Level</span>
+                <span className={`text-sm font-bold ${profile.security_level === 'High' ? 'text-emerald-400' : 'text-amber-400'}`}>{profile.security_level}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm text-slate-300">2FA</span>
+                <span className={`text-sm font-bold ${profile.two_fa_enabled ? 'text-emerald-400' : 'text-slate-500'}`}>{profile.two_fa_enabled ? 'Enabled' : 'Disabled'}</span>
+              </div>
+            </div>
+          </div>
+
+          {[
+            { icon: Shield, label: 'Security Center', desc: 'Manage 2FA and security level', color: 'text-emerald-400', action: () => setSecurityModal('security') },
+            { icon: Lock, label: 'Anti-Phishing Code', desc: profile.anti_phishing_code ? 'Set' : 'Not set', color: 'text-amber-400', action: () => setSecurityModal('antiphishing') },
+            { icon: KeyRound, label: 'Change Password', desc: 'Update your account password', color: 'text-sky-400', action: () => setSecurityModal('password') },
+            { icon: Lock, label: '6-Digit Passcode', desc: profile.passcode ? 'Set' : 'Not set', color: 'text-amber-400', action: () => setSecurityModal('passcode') },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              className="w-full bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center gap-3 hover:border-slate-700 transition-colors"
+            >
+              <item.icon className={`w-5 h-5 ${item.color}`} />
+              <div className="flex-1 text-left">
+                <p className="text-sm text-slate-200">{item.label}</p>
+                <p className="text-xs text-slate-500">{item.desc}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      {selectedEarn && (
+        <EarnModal
+          coin={selectedEarn.coin}
+          apy={selectedEarn.apy}
+          productType={selectedEarn.type}
+          minAmount={selectedEarn.minAmount}
+          userId={userId}
+          usdtBalance={usdtBalance}
+          onClose={() => setSelectedEarn(null)}
+          onSubscribe={onSubscribeEarn}
+        />
+      )}
+      {showKyc && (
+        <KYCModal
+          onClose={() => setShowKyc(false)}
+          userId={userId}
+          onComplete={(status) => {
+            if (status === 'pending') {
+              onProfileUpdate({ kyc_status: 'PENDING_VERIFICATION' });
+            } else if (status === 'verified') {
+              onProfileUpdate({ kyc_status: 'VERIFIED' });
+            } else if (status === 'rejected') {
+              onProfileUpdate({ kyc_status: 'REJECTED' });
+            }
+          }}
+        />
+      )}
+      {securityModal && (
+        <SecurityModal
+          type={securityModal}
+          onClose={() => setSecurityModal(null)}
+          userId={userId}
+          currentSecurityLevel={profile.security_level}
+          antiPhishingCode={profile.anti_phishing_code || undefined}
+          onUpdate={() => {}}
+        />
+      )}
+    </div>
+  );
+}

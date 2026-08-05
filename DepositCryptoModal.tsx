@@ -27,7 +27,7 @@ export default function DepositCryptoModal({ userId, onClose }: Props) {
 
   useEffect(() => {
     loadAddress();
-  }, [selectedCoin, selectedNetwork]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCoin, selectedNetwork]);
 
   const loadAddress = async () => {
     setLoading(true);

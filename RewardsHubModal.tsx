@@ -14,7 +14,7 @@ export default function RewardsHubModal({ userId, profile, onClose, onProfileUpd
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('voucher_redemptions').select('*').eq('user_id', userId).order('redeemed_at', { ascending: false });
-      if (data) setRedemptions(data as Array<{ code: string; reward_amount: number; redeemed_at: string }>);
+      if (data) setRedemptions(data as any[]);
     })();
   }, [userId]);
 

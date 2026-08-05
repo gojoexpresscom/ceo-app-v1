@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://sfrlnakpddzgouzihgrj.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmcmxuYWtwZGR6Z291emloZ3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjEzMzgsImV4cCI6MjEwMDc5NzMzOH0.avV2WhXxtEaMUMwjto6Rdq-Mf649YVGDguvUVPVMN_U';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseConfigured = true;
 
 export type Profile = {
   id: string;
@@ -13,7 +12,7 @@ export type Profile = {
   usdt_balance: number;
   btc_balance: number;
   eth_balance: number;
-  kyc_status: 'UNVERIFIED' | 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED';
+  kyc_status: 'UNVERIFIED' | 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED';
   vip_level: number;
   uid: string;
   security_level: string;
@@ -51,11 +50,6 @@ export type Profile = {
   time_zone?: string;
   web3_wallet_address?: string;
   created_at: string;
-  role?: string;
-  is_banned?: boolean;
-  banned_at?: string;
-  ban_reason?: string;
-  warning_count?: number;
 };
 
 export type P2POrder = {
@@ -96,4 +90,3 @@ export type MarketTicker = {
   change: number;
   volume: string;
 };
-

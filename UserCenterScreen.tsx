@@ -1,271 +1,519 @@
-import { useState } from 'react';
-import { 
-  ArrowLeft, User, Shield, Key, Bell, Smartphone, 
-  Mail, Lock, CheckCircle2, LogOut, ChevronRight, 
-  Globe, Moon, Sun, DollarSign, HelpCircle, MessageSquare, 
-  Info, HardDrive, Star, ShieldAlert, SmartphoneNfc, FileText, 
-  Users, Share2, Wallet, RefreshCw, Sliders, X, Check
+import { useState, useEffect } from 'react';
+import {
+  ArrowLeft, Moon, Globe, Copy, Check, ChevronRight, UserCircle, BadgeCheck,
+  Mail, Smartphone, KeyRound, Lock, Shield, Bell, Clock, Wallet,
+  Sun, ThumbsUp, HelpCircle, MessageSquare, Info, Trash2, Star,
+  LogOut, Link, Users, Percent, Send, TrendingUp, AlertCircle,
 } from 'lucide-react';
-import { type Profile } from '@/lib/supabase';
+import { supabase, type Profile } from '@/lib/supabase';
+import KYCModal from '@/components/modals/KYCModal';
+import SecurityModal from '@/components/modals/SecurityModal';
+import EmailChangeModal from '@/components/modals/EmailChangeModal';
+import LinkAccountModal from '@/components/modals/LinkAccountModal';
+import ProfilePictureModal from '@/components/modals/ProfilePictureModal';
+import TOTPSetupModal from '@/components/user/TOTPSetupModal';
+import PasskeysModal from '@/components/user/PasskeysModal';
+import FundPasswordModal from '@/components/user/FundPasswordModal';
+import ChangePasswordModal from '@/components/user/ChangePasswordModal';
+import TrustedDevicesModal from '@/components/user/TrustedDevicesModal';
+import WithdrawalAddressModal from '@/components/user/WithdrawalAddressModal';
+import SubaccountModal from '@/components/user/SubaccountModal';
+import UserFeedbackModal from '@/components/user/UserFeedbackModal';
+import VIPModal from '@/components/user/VIPModal';
+import FeeRatesModal from '@/components/user/FeeRatesModal';
+import NotificationModal from '@/components/user/NotificationModal';
+import AntiPhishingModal from '@/components/user/AntiPhishingModal';
+import AboutModal from '@/components/user/AboutModal';
+import WithdrawalLimitsModal from '@/components/user/WithdrawalLimitsModal';
+
+const SUPPORT_EMAIL = 'ceo.exchange.web@gmail.com';
+const TELEGRAM_COMMUNITY = 'https://t.me/+-cQQMpJQAcxhNjlk';
+const WHATSAPP_COMMUNITY = 'https://chat.whatsapp.com/GXOUVSkLqXGC9vq76e9jDD';
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  return local.slice(0, 3) + '***@' + domain;
+}
+
+
+type UCTab = 'myinfo' | 'security' | 'preference' | 'general';
+type ModalType =
+  | 'kyc' | 'emailChange' | 'linkAccount' | 'profilePic'
+  | 'totp' | 'passkeys' | 'fundPassword' | 'changePassword' | 'trustedDevices'
+  | 'withdrawalAddress' | 'subaccount' | 'feedback' | 'vip' | 'feeRates'
+  | 'notifications' | 'antiPhishing' | 'about' | 'withdrawalLimits'
+  | 'securityGeneric' | null;
 
 type Props = {
-  userId: string;
   profile: Profile;
+  userId: string;
   onBack: () => void;
   onLogout: () => void;
+  onProfileUpdate: (updates: Partial<Profile>) => void;
 };
 
-type ActiveModal = 
-  | null 
-  | 'nickname' 
-  | 'identity' 
-  | 'vip' 
-  | 'subaccount' 
-  | 'linkAccount' 
-  | 'passkeys' 
-  | 'antiPhishing' 
-  | 'fundPassword' 
-  | 'transactionApproval' 
-  | 'withdrawalSecurity' 
-  | 'changePassword' 
-  | 'trustedDevices' 
-  | 'appLock' 
-  | 'withdrawalAddress' 
-  | 'limits' 
-  | 'language' 
-  | 'currency' 
-  | 'colorTheme' 
-  | 'help' 
-  | 'support' 
-  | 'feedback' 
-  | 'about' 
-  | 'storage';
+export default function UserCenterScreen({ profile, userId, onBack, onLogout, onProfileUpdate }: Props) {
+  const [tab, setTab] = useState<UCTab>('myinfo');
+  const [copied, setCopied] = useState(false);
+  const [modal, setModal] = useState<ModalType>(null);
+  const [nickname, setNickname] = useState(profile.nickname || '');
+  const [showNicknameEdit, setShowNicknameEdit] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [colorUp, setColorUp] = useState<'green' | 'red'>((profile.color_up as 'green' | 'red') || 'green');
+  const [alwaysOn, setAlwaysOn] = useState(false);
+  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
+  const [currency, setCurrency] = useState(profile.preferred_currency || 'USD');
+  const [routing, setRouting] = useState(profile.routing_mode || 'auto');
+  const [depositTo, setDepositTo] = useState(profile.deposit_to || 'funding');
+  const [appLock, setAppLock] = useState(profile.app_lock_enabled || false);
+  const [secureTx, setSecureTx] = useState(profile.secure_tx_approval || false);
+  const [withdrawalLock, setWithdrawalLock] = useState(!!profile.withdrawal_lock_until && new Date(profile.withdrawal_lock_until) > new Date());
+  const [savingPref, setSavingPref] = useState(false);
 
-export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
-  const [mainTab, setMainTab] = useState<'info' | 'security' | 'preference' | 'general'>('info');
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
-  
-  const [google2fa, setGoogle2fa] = useState(true);
-  const [alwaysOnLock, setAlwaysOnLock] = useState(false);
-  const [inputValue, setInputValue] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Check withdrawal lock periodically
+  useEffect(() => {
+    const check = () => setWithdrawalLock(!!profile.withdrawal_lock_until && new Date(profile.withdrawal_lock_until) > new Date());
+    check();
+    const interval = setInterval(check, 60_000);
+    return () => clearInterval(interval);
+  }, [profile.withdrawal_lock_until]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+  // Wake lock for Always On
+  useEffect(() => {
+    if (alwaysOn && 'wakeLock' in navigator) {
+      (async () => {
+        try {
+          const lock = await (navigator as any).wakeLock.request('screen');
+          setWakeLock(lock);
+        } catch { /* user agent doesn't support or denied */ }
+      })();
+    } else if (!alwaysOn && wakeLock) {
+      wakeLock.release();
+      setWakeLock(null);
+    }
+    return () => { if (wakeLock) wakeLock.release(); };
+  }, [alwaysOn]);
+
+  const copyUID = () => {
+    navigator.clipboard.writeText(profile.uid).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
-  const displayName = profile.full_name || profile.email?.split('@')[0] || 'goj***@****';
-  const displayUid = profile.id ? profile.id.slice(0, 9) : '231341794';
+  const saveNickname = async () => {
+    await supabase.from('profiles').update({ nickname: nickname.trim() }).eq('user_id', userId);
+    onProfileUpdate({ nickname: nickname.trim() });
+    setShowNicknameEdit(false);
+  };
 
-  return (
-    <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] flex flex-col pb-12 select-none">
-      {toastMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#f0b90b] text-black font-bold px-4 py-2.5 rounded-2xl shadow-2xl z-50 text-xs flex items-center gap-2">
-          <Check className="w-4 h-4" /> {toastMessage}
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    // In a full implementation, this would toggle a class on document root
+    document.documentElement.classList.toggle('light-mode', next === 'light');
+  };
+
+  const toggleColorPref = async () => {
+    const next = colorUp === 'green' ? 'red' : 'green';
+    setColorUp(next);
+    await supabase.from('profiles').update({ color_up: next }).eq('user_id', userId);
+    onProfileUpdate({ color_up: next });
+  };
+
+  const toggleAppLock = async () => {
+    const next = !appLock;
+    setAppLock(next);
+    await supabase.from('profiles').update({ app_lock_enabled: next }).eq('user_id', userId);
+    onProfileUpdate({ app_lock_enabled: next });
+  };
+
+  const toggleSecureTx = async () => {
+    const next = !secureTx;
+    setSecureTx(next);
+    await supabase.from('profiles').update({ secure_tx_approval: next }).eq('user_id', userId);
+    onProfileUpdate({ secure_tx_approval: next });
+  };
+
+  const savePref = async (field: string, value: string) => {
+    setSavingPref(true);
+    await supabase.from('profiles').update({ [field]: value }).eq('user_id', userId);
+    onProfileUpdate({ [field]: value } as Partial<Profile>);
+    setSavingPref(false);
+  };
+
+  const clearStorage = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    if ('caches' in window) {
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+    }
+    setModal(null);
+    alert('Cache and local storage cleared successfully.');
+  };
+
+  const tabs: Array<{ id: UCTab; label: string }> = [
+    { id: 'myinfo', label: 'My info' },
+    { id: 'security', label: 'Security' },
+    { id: 'preference', label: 'Preference' },
+    { id: 'general', label: 'General' },
+  ];
+
+  const secLevel = profile.security_level || 'Low';
+  const secDots = secLevel === 'High' ? 4 : secLevel === 'Medium' ? 2 : 1;
+
+  const SettingRow = ({
+    icon: Icon, label, value, onPress, rightNode,
+  }: {
+    icon: typeof Mail; label: string; value?: string; onPress?: () => void; rightNode?: React.ReactNode;
+  }) => (
+    <button
+      onClick={onPress}
+      className="w-full flex items-center gap-4 py-4 border-b border-[#1e2026] last:border-0 hover:bg-[#1a1d21] px-4 text-left"
+    >
+      <Icon className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
+      <span className="flex-1 text-sm text-[#eaecef]">{label}</span>
+      {rightNode ?? (
+        <div className="flex items-center gap-1.5">
+          {value && <span className="text-sm text-[#848e9c]">{value}</span>}
+          <ChevronRight className="w-4 h-4 text-[#474d57]" />
         </div>
       )}
+    </button>
+  );
 
+  const SectionHeader = ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <div className="px-4 pt-5 pb-2">
+      <p className="text-sm font-bold text-[#eaecef]">{title}</p>
+      {subtitle && <p className="text-xs text-[#848e9c] mt-0.5">{subtitle}</p>}
+    </div>
+  );
+
+  const Toggle = ({ value, onChange, loading }: { value: boolean; onChange: () => void; loading?: boolean }) => (
+    <button
+      onClick={e => { e.stopPropagation(); if (!loading) onChange(); }}
+      className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${value ? 'bg-[#f0b90b]' : 'bg-[#2b2f36]'} ${loading ? 'opacity-60' : ''}`}
+    >
+      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-0.5'}`} />
+    </button>
+  );
+
+  const linkedChannels = [
+    profile.telegram_handle && { name: 'Telegram', color: '#0088cc' },
+    profile.twitter_handle && { name: 'X', color: '#000000' },
+    profile.whatsapp_number && { name: 'WhatsApp', color: '#25d366' },
+  ].filter(Boolean);
+
+  return (
+    <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 sticky top-0 bg-[#0b0e11] z-30 border-b border-[#1e2026]">
-        <button onClick={onBack} className="p-1 hover:bg-[#1e2026] rounded-xl transition-colors">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-base font-bold text-[#eaecef]">User Center</h1>
-        <div className="flex items-center gap-3">
-          <Moon className="w-5 h-5 text-[#848e9c]" />
-          <Globe className="w-5 h-5 text-[#848e9c]" />
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 sticky top-0 bg-[#0b0e11] z-10">
+        <button onClick={onBack}><ArrowLeft className="w-6 h-6" /></button>
+        <h1 className="text-base font-bold">User Center</h1>
+        <div className="flex items-center gap-4">
+          <button onClick={toggleTheme}>{theme === 'dark' ? <Moon className="w-5 h-5 text-[#848e9c]" /> : <Sun className="w-5 h-5 text-[#848e9c]" />}</button>
+          <button><Globe className="w-5 h-5 text-[#848e9c]" /></button>
         </div>
       </div>
 
-      {/* User Banner */}
-      <div className="px-4 py-4 flex items-center justify-between border-b border-[#1e2026] bg-[#0b0e11]">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 p-0.5 shadow-lg">
-            <div className="w-full h-full bg-[#1e2026] rounded-[14px] flex items-center justify-center">
-              <span className="text-xl font-black text-[#f0b90b]">{displayName[0]?.toUpperCase()}</span>
+      {/* User summary */}
+      <div className="px-4 py-4 flex items-center gap-3">
+        <button onClick={() => setModal('profilePic')} className="relative flex-shrink-0">
+          <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-xl font-black text-black">
+            {profile.profile_picture_url ? (
+              <img src={profile.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              profile.email.charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#f0b90b] flex items-center justify-center border-2 border-[#0b0e11]">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+        </button>
+        <div>
+          <p className="text-xl font-bold">{maskEmail(profile.email)}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-xs text-[#848e9c]">Security level</span>
+            <span className={`text-xs font-bold ${secLevel === 'High' ? 'text-emerald-400' : secLevel === 'Medium' ? 'text-amber-400' : 'text-rose-400'}`}>{secLevel}</span>
+            <div className="flex gap-0.5">
+              {[1,2,3,4].map(i => (
+                <div key={i} className={`w-5 h-1 rounded-full ${i <= secDots ? 'bg-emerald-400' : 'bg-[#2b2f36]'}`} />
+              ))}
             </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-[#eaecef]">{displayName.slice(0, 3)}***@****</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-emerald-400 font-bold">Security level High ---</span>
-            </div>
-            <div className="inline-block mt-1 bg-[#1e2026] border border-[#2b2f36] px-2 py-0.5 rounded-md">
-              <span className="text-[10px] text-[#848e9c]">Site: Bybit Global</span>
-            </div>
-          </div>
+          <p className="text-xs text-[#848e9c] mt-0.5">Site: CEO Exchange</p>
         </div>
-        <ChevronRight className="w-5 h-5 text-[#474d57]" />
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#1e2026] px-4 bg-[#0b0e11] sticky top-[57px] z-20">
-        {(['info', 'security', 'preference', 'general'] as const).map((tab) => (
+      <div className="flex border-b border-[#2b2f36] px-4">
+        {tabs.map(t => (
           <button
-            key={tab}
-            onClick={() => setMainTab(tab)}
-            className={`pb-3 pt-3 mr-6 text-sm font-bold relative transition-colors capitalize ${
-              mainTab === tab ? 'text-[#eaecef]' : 'text-[#848e9c] hover:text-[#eaecef]'
-            }`}
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`mr-6 pb-3 text-sm transition-colors border-b-2 ${tab === t.id ? 'text-[#eaecef] font-bold border-[#eaecef]' : 'text-[#848e9c] border-transparent'}`}
           >
-            {tab === 'info' ? 'My info' : tab}
-            {mainTab === tab && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#f0b90b] rounded-full" />
-            )}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Tab Content Panels */}
-      <div className="flex-1 px-4 py-2 flex flex-col gap-1 max-w-lg mx-auto w-full">
-        {mainTab === 'info' && (
-          <div className="flex flex-col">
-            <MenuItem icon={<User className="w-5 h-5 text-[#848e9c]" />} label="Profile Picture" onClick={() => setActiveModal('nickname')} />
-            <MenuItem icon={<FileText className="w-5 h-5 text-[#848e9c]" />} label="Nickname" value={`${displayName.slice(0, 3)}***@****`} onClick={() => setActiveModal('nickname')} />
-            <MenuItem icon={<Shield className="w-5 h-5 text-[#848e9c]" />} label="UID" value={displayUid} copyable onCopy={() => showToast('UID copied')} />
-            <MenuItem icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />} label="Identity Verification" value="Lv.1 Verified" valueColor="text-emerald-400" onClick={() => setActiveModal('identity')} />
-            <MenuItem icon={<Star className="w-5 h-5 text-amber-400" />} label="VIP level" value="Non-VIP" onClick={() => setActiveModal('vip')} />
-            <MenuItem icon={<DollarSign className="w-5 h-5 text-[#848e9c]" />} label="My Fee Rates" onClick={() => showToast('Standard tier active')} />
-            <MenuItem icon={<Users className="w-5 h-5 text-[#848e9c]" />} label="Subaccount" onClick={() => setActiveModal('subaccount')} />
-            <MenuItem icon={<Share2 className="w-5 h-5 text-[#848e9c]" />} label="Link Account" onClick={() => setActiveModal('linkAccount')} />
-            <MenuItem icon={<MessageSquare className="w-5 h-5 text-[#848e9c]" />} label="Join Our Community" onClick={() => window.open('https://t.me', '_blank')} />
-          </div>
-        )}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto pb-8">
 
-        {mainTab === 'security' && (
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Basic Protect</p>
-              <MenuItem icon={<Mail className="w-5 h-5 text-[#848e9c]" />} label="Email" value={`${displayName.slice(0, 3)}***@****`} />
-              <MenuItem icon={<Smartphone className="w-5 h-5 text-[#848e9c]" />} label="Mobile" value="90****016" />
-              <div className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors">
-                <div className="flex items-center gap-3">
-                  <Shield className="w-5 h-5 text-[#f0b90b]" />
-                  <span className="text-sm font-medium text-[#eaecef]">Google 2FA Authentication</span>
+        {/* ============ MY INFO ============ */}
+        {tab === 'myinfo' && (
+          <div>
+            <SettingRow icon={UserCircle} label="Profile Picture" onPress={() => setModal('profilePic')}
+              rightNode={<div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-xs font-bold text-black">
+                  {profile.profile_picture_url ? <img src={profile.profile_picture_url} alt="" className="w-full h-full object-cover" /> : profile.email.charAt(0).toUpperCase()}
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={google2fa} 
-                  onChange={() => { setGoogle2fa(!google2fa); showToast(google2fa ? '2FA Disabled' : '2FA Enabled'); }}
-                  className="w-5 h-5 accent-[#f0b90b] cursor-pointer rounded" 
-                />
+                <ChevronRight className="w-4 h-4 text-[#474d57]" />
+              </div>} />
+
+            {/* Nickname - editable */}
+            {showNicknameEdit ? (
+              <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-3">
+                <UserCircle className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
+                <input autoFocus value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20}
+                  placeholder="Enter nickname" onKeyDown={e => e.key === 'Enter' && saveNickname()}
+                  className="flex-1 bg-[#0b0e11] border border-[#2b2f36] rounded-lg px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]" />
+                <button onClick={saveNickname} className="text-xs text-[#f0b90b] font-bold px-3 py-2">Save</button>
               </div>
-              <MenuItem icon={<Key className="w-5 h-5 text-[#848e9c]" />} label="Passkeys" onClick={() => setActiveModal('passkeys')} />
-              <MenuItem icon={<Lock className="w-5 h-5 text-[#848e9c]" />} label="Anti-phishing Code" value="469339" onClick={() => setActiveModal('antiPhishing')} />
-            </div>
+            ) : (
+              <SettingRow icon={UserCircle} label="Nickname" value={profile.nickname || 'Not Set'} onPress={() => { setNickname(profile.nickname || ''); setShowNicknameEdit(true); }} />
+            )}
 
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Advanced Protect</p>
-              <MenuItem icon={<ShieldAlert className="w-5 h-5 text-amber-400" />} label="Fund Password" value="Not Setup" valueColor="text-amber-400" onClick={() => setActiveModal('fundPassword')} />
-              <MenuItem icon={<CheckCircle2 className="w-5 h-5 text-[#848e9c]" />} label="Secure Transaction Approval" onClick={() => setActiveModal('transactionApproval')} />
-            </div>
+            {/* UID - read only, copy */}
+            <SettingRow icon={BadgeCheck} label="UID" onPress={copyUID}
+              rightNode={<div className="flex items-center gap-2">
+                <span className="text-sm text-[#848e9c]">{profile.uid}</span>
+                <button onClick={(e) => { e.stopPropagation(); copyUID(); }}>
+                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-[#848e9c]" />}
+                </button>
+              </div>} />
 
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Scenario-based protection</p>
-              <MenuItem icon={<Wallet className="w-5 h-5 text-[#848e9c]" />} label="Withdrawal Security" onClick={() => setActiveModal('withdrawalSecurity')} />
-            </div>
+            {/* Email */}
+            <SettingRow icon={Mail} label="Email" value={maskEmail(profile.email)} onPress={() => setModal('emailChange')} />
 
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Account access</p>
-              <MenuItem icon={<Key className="w-5 h-5 text-[#848e9c]" />} label="Change Password" onClick={() => setActiveModal('changePassword')} />
-              <MenuItem icon={<SmartphoneNfc className="w-5 h-5 text-[#848e9c]" />} label="Trusted Devices" onClick={() => setActiveModal('trustedDevices')} />
-              <MenuItem icon={<Lock className="w-5 h-5 text-[#848e9c]" />} label="App Lock" onClick={() => setActiveModal('appLock')} />
+            {/* KYC */}
+            <SettingRow icon={Shield} label="Identity Verification"
+              value={profile.kyc_status === 'VERIFIED' ? 'Verified' : profile.kyc_status === 'PENDING_VERIFICATION' ? 'Pending' : 'Unverified'}
+              onPress={() => setModal('kyc')} />
+
+            <SettingRow icon={Star} label="VIP Level" value={`Lv.${profile.vip_level}`} onPress={() => setModal('vip')} />
+            <SettingRow icon={Percent} label="My Fee Rates" onPress={() => setModal('feeRates')} />
+            <SettingRow icon={BadgeCheck} label="Additional Verification" value="0 cases" onPress={() => setModal('securityGeneric')} />
+            <SettingRow icon={Users} label="Subaccount" onPress={() => setModal('subaccount')} />
+
+            {/* Link Account */}
+            <SettingRow icon={Link} label="Link Account" onPress={() => setModal('linkAccount')}
+              rightNode={<div className="flex items-center gap-1.5">
+                {linkedChannels.length > 0 ? (
+                  (linkedChannels as any[]).map(ch => (
+                    <div key={ch.name} className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: ch.color }}>
+                      {ch.name === 'Telegram' && <Send className="w-3 h-3 text-white" />}
+                      {ch.name === 'X' && <span className="text-white text-[8px] font-bold">X</span>}
+                      {ch.name === 'WhatsApp' && <span className="text-white text-[8px] font-bold">W</span>}
+                    </div>
+                  ))
+                ) : <span className="text-xs text-[#848e9c]">Not linked</span>}
+                <ChevronRight className="w-4 h-4 text-[#474d57]" />
+              </div>} />
+
+            <SettingRow icon={Users} label="Affiliate's Community" value="Joined" onPress={() => window.open(TELEGRAM_COMMUNITY, '_blank')} />
+            <SettingRow icon={Users} label="Join Our Community" onPress={() => window.open(WHATSAPP_COMMUNITY, '_blank')} />
+
+            <div className="px-4 py-6">
+              <button onClick={onLogout} className="w-full bg-[#1e2026] border border-[#2b2f36] text-[#eaecef] py-4 rounded-2xl font-bold text-sm hover:bg-[#2b2f36] transition-colors flex items-center justify-center gap-2">
+                <LogOut className="w-4 h-4" /> Log Out
+              </button>
             </div>
           </div>
         )}
 
-        {mainTab === 'preference' && (
-          <div className="flex flex-col">
-            <MenuItem icon={<Bell className="w-5 h-5 text-[#848e9c]" />} label="Benchmark Time Zone" value="Last 24 hours" onClick={() => showToast('Time zone settings')} />
-            <MenuItem icon={<Wallet className="w-5 h-5 text-[#848e9c]" />} label="Withdrawal Address" onClick={() => setActiveModal('withdrawalAddress')} />
-            <MenuItem icon={<Sliders className="w-5 h-5 text-[#848e9c]" />} label="Manage Crypto Withdrawal Limits" onClick={() => setActiveModal('limits')} />
-            <MenuItem icon={<RefreshCw className="w-5 h-5 text-[#848e9c]" />} label="Switch routing" value="Auto Routing Optimization" onClick={() => showToast('Routing active')} />
+        {/* ============ SECURITY ============ */}
+        {tab === 'security' && (
+          <div>
+            <SectionHeader title="Basic Protect" subtitle="Essential protection for everyday account activity." />
+            <SettingRow icon={Mail} label="Email" value={maskEmail(profile.email)} onPress={() => setModal('emailChange')} />
+            <SettingRow icon={Shield} label="Google 2FA Authentication"
+              rightNode={<Toggle value={profile.two_fa_enabled} onChange={() => setModal('totp')} />} />
+            <SettingRow icon={KeyRound} label="Passkeys" value={`${profile.passkey_count || 0} registered`} onPress={() => setModal('passkeys')} />
+            <SettingRow icon={Lock} label="Anti-phishing Code" value={profile.anti_phishing_code || 'Not Set'} onPress={() => setModal('antiPhishing')} />
+
+            <SectionHeader title="Advanced Protect" subtitle="Additional protection for key fund actions." />
+            <SettingRow icon={Lock} label="Fund Password" value={profile.fund_password_set ? 'Set' : 'Not Setup'} onPress={() => setModal('fundPassword')} />
+            <SettingRow icon={Shield} label="Secure Transaction Approval"
+              rightNode={<Toggle value={secureTx} onChange={toggleSecureTx} />} />
+
+            <SectionHeader title="Scenario-based Protection" subtitle="Extra protection for specific scenarios." />
+            <SettingRow icon={Lock} label="Withdrawal Security"
+              value={withdrawalLock ? 'Locked (24h)' : 'Active'}
+              onPress={() => setModal('securityGeneric')} />
+
+            <SectionHeader title="Account Access & Management" />
+            <SettingRow icon={KeyRound} label="Change Password" onPress={() => setModal('changePassword')} />
+            <SettingRow icon={Smartphone} label="Trusted Devices" onPress={() => setModal('trustedDevices')} />
+            <SettingRow icon={Lock} label="App Lock"
+              rightNode={<Toggle value={appLock} onChange={toggleAppLock} />} />
           </div>
         )}
 
-        {mainTab === 'general' && (
-          <div className="flex flex-col">
-            <MenuItem icon={<Globe className="w-5 h-5 text-[#848e9c]" />} label="Language" value="English" onClick={() => setActiveModal('language')} />
-            <MenuItem icon={<DollarSign className="w-5 h-5 text-[#848e9c]" />} label="Currency Display" value="USD" onClick={() => setActiveModal('currency')} />
-            <MenuItem icon={<Sun className="w-5 h-5 text-[#848e9c]" />} label="Color Theme" value="Dark Mode" onClick={() => setActiveModal('colorTheme')} />
-            <div className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors">
-              <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-[#848e9c]" />
-                <span className="text-sm font-medium text-[#eaecef]">Always on (no screen lock)</span>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={alwaysOnLock} 
-                onChange={() => setAlwaysOnLock(!alwaysOnLock)}
-                className="w-5 h-5 accent-[#f0b90b] cursor-pointer rounded" 
-              />
+        {/* ============ PREFERENCE ============ */}
+        {tab === 'preference' && (
+          <div>
+            <SectionHeader title="Time & Routing" />
+            <SettingRow icon={Clock} label="Benchmark Time Zone" value={profile.time_zone || 'UTC'}
+              onPress={() => {
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                savePref('time_zone', tz);
+              }} />
+
+            <SettingRow icon={Wallet} label="Withdrawal Address Book" onPress={() => setModal('withdrawalAddress')} />
+            <SettingRow icon={TrendingUp} label="Manage Crypto Withdrawal Limits" onPress={() => setModal('withdrawalLimits')} />
+
+            {/* Switch Routing dropdown */}
+            <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
+              <TrendingUp className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
+              <span className="flex-1 text-sm text-[#eaecef]">Switch Routing</span>
+              <select value={routing} onChange={e => { setRouting(e.target.value); savePref('routing_mode', e.target.value); }}
+                className="bg-[#0b0e11] border border-[#2b2f36] rounded-lg px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]">
+                <option value="auto">Auto Routing</option>
+                <option value="spot">Spot Account</option>
+                <option value="funding">Funding Account</option>
+              </select>
             </div>
-            <MenuItem icon={<HelpCircle className="w-5 h-5 text-[#848e9c]" />} label="Help Center" onClick={() => setActiveModal('help')} />
-            <MenuItem icon={<MessageSquare className="w-5 h-5 text-[#848e9c]" />} label="Contact Support" onClick={() => setActiveModal('support')} />
-            <MenuItem icon={<Info className="w-5 h-5 text-[#848e9c]" />} label="About Us" onClick={() => setActiveModal('about')} />
-            <MenuItem icon={<HardDrive className="w-5 h-5 text-[#848e9c]" />} label="Storage management" value="14.2 MB" onClick={() => setActiveModal('storage')} />
+
+            {/* Route Deposits To dropdown */}
+            <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
+              <Wallet className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
+              <span className="flex-1 text-sm text-[#eaecef]">Route Deposits To</span>
+              <select value={depositTo} onChange={e => { setDepositTo(e.target.value); savePref('deposit_to', e.target.value); }}
+                className="bg-[#0b0e11] border border-[#2b2f36] rounded-lg px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]">
+                <option value="funding">Funding Account</option>
+                <option value="spot">Spot Account</option>
+              </select>
+            </div>
+
+            <SectionHeader title="Notifications" />
+            <SettingRow icon={Bell} label="Notification Settings" onPress={() => setModal('notifications')} />
+            <SettingRow icon={Mail} label="Email Subscriptions" onPress={() => setModal('notifications')} />
           </div>
         )}
 
-        <div className="mt-8 px-2">
-          <button 
-            onClick={onLogout}
-            className="w-full bg-[#1e2026] hover:bg-[#2b2f36] border border-[#2b2f36] text-[#eaecef] font-bold py-4 rounded-2xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xl"
-          >
-            <LogOut className="w-4 h-4 text-rose-400" /> Log Out
-          </button>
-        </div>
+        {/* ============ GENERAL ============ */}
+        {tab === 'general' && (
+          <div>
+            <SectionHeader title="Display" />
+            <SettingRow icon={Globe} label="Language" value={profile.preferred_language || 'English'} onPress={() => {}} />
+
+            {/* Currency Display dropdown */}
+            <div className="px-4 py-4 border-b border-[#1e2026] flex items-center gap-4">
+              <Wallet className="w-5 h-5 text-[#848e9c] flex-shrink-0" />
+              <span className="flex-1 text-sm text-[#eaecef]">Currency Display</span>
+              <select value={currency} onChange={e => { setCurrency(e.target.value); savePref('preferred_currency', e.target.value); }}
+                className="bg-[#0b0e11] border border-[#2b2f36] rounded-lg px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]">
+                {['USD','EUR','GBP','JPY','ETB','NGN','KES','GHS','CNY','INR','BRL','AED','SAR'].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Color Theme toggle */}
+            <SettingRow icon={theme === 'dark' ? Moon : Sun} label="Color Theme" value={theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              onPress={toggleTheme}
+              rightNode={<Toggle value={theme === 'dark'} onChange={toggleTheme} />} />
+
+            {/* Color Preferences */}
+            <SettingRow icon={TrendingUp} label="Color Preferences"
+              value={colorUp === 'green' ? 'Green Up / Red Down' : 'Red Up / Green Down'}
+              onPress={toggleColorPref} />
+
+            {/* Always On */}
+            <SettingRow icon={Smartphone} label="Always On (no screen lock)"
+              rightNode={<Toggle value={alwaysOn} onChange={() => setAlwaysOn(!alwaysOn)} />} />
+
+            <SectionHeader title="Support" />
+            <SettingRow icon={HelpCircle} label="Help Center" onPress={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=Help Center`, '_blank')} />
+            <SettingRow icon={MessageSquare} label="Contact Support" onPress={() => window.open(`mailto:${SUPPORT_EMAIL}?subject=Support Request`, '_blank')} />
+            <SettingRow icon={MessageSquare} label="User Feedback" onPress={() => setModal('feedback')} />
+            <SettingRow icon={Info} label="About Us" onPress={() => setModal('about')} />
+
+            <SectionHeader title="App Management" />
+            <SettingRow icon={Trash2} label="Storage Management" onPress={clearStorage} />
+            <SettingRow icon={ThumbsUp} label="Rate Our App" onPress={() => setModal('feedback')} />
+          </div>
+        )}
       </div>
 
-      {/* Pop-up Modals */}
-      {activeModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1e2026] border border-[#2b2f36] rounded-3xl w-full max-w-sm p-6 relative shadow-2xl">
-            <button onClick={() => setActiveModal(null)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#2b2f36] flex items-center justify-center text-[#848e9c]">
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-base font-bold capitalize text-[#eaecef] mb-2">
-              {activeModal.replace(/([A-Z])/g, ' $1')}
-            </h3>
-            <p className="text-xs text-[#848e9c] mb-4">Configure your security and account preferences instantly.</p>
-            <input 
-              type="text" 
-              placeholder="Enter details..." 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-3 text-sm text-[#eaecef] outline-none mb-4"
-            />
-            <button 
-              onClick={() => { showToast('Updated successfully!'); setActiveModal(null); setInputValue(''); }}
-              className="w-full bg-[#f0b90b] text-black font-bold py-3 rounded-xl text-sm"
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
+      {/* ============ MODALS ============ */}
+      {modal === 'kyc' && (
+        <KYCModal onClose={() => setModal(null)} userId={userId}
+          onComplete={(status) => onProfileUpdate({ kyc_status: status as Profile['kyc_status'] })} />
+      )}
+      {modal === 'emailChange' && (
+        <EmailChangeModal userId={userId} currentEmail={profile.email} onClose={() => setModal(null)}
+          onEmailChanged={(newEmail) => onProfileUpdate({ email: newEmail })} />
+      )}
+      {modal === 'linkAccount' && (
+        <LinkAccountModal userId={userId} profile={profile} onClose={() => setModal(null)}
+          onUpdate={(updates) => onProfileUpdate(updates as Partial<Profile>)} />
+      )}
+      {modal === 'profilePic' && (
+        <ProfilePictureModal userId={userId} currentPicture={profile.profile_picture_url} email={profile.email}
+          onClose={() => setModal(null)} onPictureChanged={(url) => onProfileUpdate({ profile_picture_url: url })} />
+      )}
+      {modal === 'totp' && (
+        <TOTPSetupModal userId={userId} email={profile.email} enabled={profile.two_fa_enabled}
+          existingSecret={profile.totp_secret} onClose={() => setModal(null)}
+          onChanged={(enabled) => onProfileUpdate({ two_fa_enabled: enabled, security_level: enabled ? 'High' : 'Medium' })} />
+      )}
+      {modal === 'passkeys' && (
+        <PasskeysModal userId={userId} email={profile.email} onClose={() => setModal(null)}
+          onUpdate={(count) => onProfileUpdate({ passkey_count: count })} />
+      )}
+      {modal === 'fundPassword' && (
+        <FundPasswordModal userId={userId} isSet={profile.fund_password_set} onClose={() => setModal(null)}
+          onSet={() => onProfileUpdate({ fund_password_set: true, security_level: 'High' })} />
+      )}
+      {modal === 'changePassword' && (
+        <ChangePasswordModal userId={userId} email={profile.email} onClose={() => setModal(null)} />
+      )}
+      {modal === 'trustedDevices' && (
+        <TrustedDevicesModal userId={userId} onClose={() => setModal(null)} />
+      )}
+      {modal === 'withdrawalAddress' && (
+        <WithdrawalAddressModal userId={userId} onClose={() => setModal(null)} />
+      )}
+      {modal === 'subaccount' && (
+        <SubaccountModal userId={userId} onClose={() => setModal(null)} />
+      )}
+      {modal === 'feedback' && (
+        <UserFeedbackModal userId={userId} onClose={() => setModal(null)} />
+      )}
+      {modal === 'vip' && (
+        <VIPModal currentLevel={profile.vip_level} onClose={() => setModal(null)} />
+      )}
+      {modal === 'feeRates' && (
+        <FeeRatesModal vipLevel={profile.vip_level} onClose={() => setModal(null)} />
+      )}
+      {modal === 'notifications' && (
+        <NotificationModal userId={userId} profile={profile} onClose={() => setModal(null)}
+          onUpdate={(updates) => onProfileUpdate(updates)} />
+      )}
+      {modal === 'antiPhishing' && (
+        <AntiPhishingModal userId={userId} currentCode={profile.anti_phishing_code}
+          onClose={() => setModal(null)} onUpdate={(code) => onProfileUpdate({ anti_phishing_code: code })} />
+      )}
+      {modal === 'about' && <AboutModal onClose={() => setModal(null)} />}
+      {modal === 'withdrawalLimits' && (
+        <WithdrawalLimitsModal kycStatus={profile.kyc_status} onClose={() => setModal(null)} />
+      )}
+      {modal === 'securityGeneric' && (
+        <SecurityModal type="security" onClose={() => setModal(null)} userId={userId}
+          currentSecurityLevel={profile.security_level} antiPhishingCode={profile.anti_phishing_code}
+          onUpdate={(updates) => onProfileUpdate(updates as Partial<Profile>)} />
       )}
     </div>
   );
 }
-
-function MenuItem({ 
-  icon, label, value, valueColor = 'text-[#848e9c]', copyable, onCopy, onClick 
-}: { 
-  icon: React.ReactNode; label: string; value?: string; valueColor?: string; copyable?: boolean; onCopy?: () => void; onClick?: () => void; 
-}) {
-  return (
-    <div onClick={onClick} className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors cursor-pointer group">
-      <div className="flex items-center gap-3">
-        {icon}
-        <span className="text-sm font-medium text-[#eaecef] group-hover:text-white">{label}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        {value && <span className={`text-xs ${valueColor}`}>{value}</span>}
-        {copyable && <button onClick={(e) => { e.stopPropagation(); onCopy?.(); }} className="text-xs text-[#848e9c]">📋</button>}
-        <ChevronRight className="w-4 h-4 text-[#474d57]" />
-      </div>
-    </div>
-  );
-              }
-              

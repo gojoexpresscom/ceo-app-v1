@@ -145,36 +145,32 @@ export default function CommunityFeed({ userId, profile }: Props) {
   const [showCreatorMenu, setShowCreatorMenu] = useState(false);
   const [creatorMode, setCreatorMode] = useState<'post' | 'article' | 'video' | null>(null);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const [liveSessions, setLiveSessions] = useState<Array<Record<string, unknown>>>([]);
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [followLoading, setFollowLoading] = useState<string | null>(null);
   const [liveStarting, setLiveStarting] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
-  const [platformAnnouncements, setPlatformAnnouncements] = useState<Array<{ id: string; title: string; content: string; type: string; created_at: string; author_role: string }>>([]);
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [commentAuthors, setCommentAuthors] = useState<Map<string, string>>(new Map());
 
   // Live streaming state
   const [liveMode, setLiveMode] = useState(false);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [liveTitle, setLiveTitle] = useState('');
   const [liveSource, setLiveSource] = useState<'camera' | 'screen' | null>(null);
-  const [activeLiveSession, setActiveLiveSession] = useState<Record<string, unknown> | null>(null);
+  const [activeLiveSession, setActiveLiveSession] = useState<any>(null);
   const liveVideoRef = useRef<HTMLVideoElement>(null);
+  const [watchStream, setWatchStream] = useState<MediaStream | null>(null);
+  const watchVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('user_follows').select('following_id').eq('follower_id', userId);
-      setFollowingIds(new Set((data || []).map((d: Record<string, unknown>) => d.following_id as string)));
+      setFollowingIds(new Set((data || []).map((d: any) => d.following_id)));
     })();
   }, [userId]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('live_sessions').select('*').eq('status', 'live').order('created_at', { ascending: false });
-      setLiveSessions((data as Array<Record<string, unknown>>) || []);
-      const { data: annData } = await supabase.from('platform_announcements').select('id, title, content, type, created_at, author_role').eq('is_active', true).order('created_at', { ascending: false });
-      setPlatformAnnouncements((annData as Array<{ id: string; title: string; content: string; type: string; created_at: string; author_role: string }>) || []);
+      setLiveSessions((data as any[]) || []);
     })();
   }, []);
 
@@ -279,7 +275,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
       .select('user_id, email, uid, profile_picture_url')
       .in('user_id', authorIds);
 
-    const authorMap = new Map<string, Record<string, unknown>>();
+    const authorMap = new Map<string, any>();
     (authorsData || []).forEach(a => authorMap.set(a.user_id, a));
 
     // Step 3: Fetch user interactions
@@ -289,12 +285,12 @@ export default function CommunityFeed({ userId, profile }: Props) {
       .eq('user_id', userId);
 
     const userInteractions = new Map<string, Set<string>>();
-    (interactions || []).forEach((i: Record<string, unknown>) => {
+    (interactions || []).forEach((i: any) => {
       if (!userInteractions.has(i.post_id)) userInteractions.set(i.post_id, new Set());
       userInteractions.get(i.post_id)!.add(i.type);
     });
 
-    const mapped: Post[] = (postsData as Array<Record<string, unknown>>).map(p => {
+    const mapped: Post[] = (postsData as any[]).map(p => {
       const author = authorMap.get(p.author_id);
       const userInt = userInteractions.get(p.id) || new Set();
       return {
@@ -366,7 +362,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
     try {
       const { imageUrl: upImg, videoUrl: upVid } = await uploadMedia();
 
-      const postData: Record<string, unknown> = {
+      const postData: Record<string, any> = {
         author_id: userId,
         content: newPost.trim(),
         image_url: upImg,
@@ -434,32 +430,11 @@ export default function CommunityFeed({ userId, profile }: Props) {
     setExpandedPost(post);
     const { data } = await supabase
       .from('post_interactions')
-      .select('id, comment_text, user_id, created_at, parent_comment_id')
+      .select('id, comment_text, user_id, created_at')
       .eq('post_id', post.id)
       .eq('type', 'COMMENT')
       .order('created_at', { ascending: true });
-    const cmts = (data as Array<{ id: string; comment_text: string; user_id: string; created_at: string; parent_comment_id: string | null }>) || [];
-    setComments(cmts);
-    // Fetch author nicknames for comments
-    const authorIds = [...new Set(cmts.map(c => c.user_id).filter(Boolean))];
-    if (authorIds.length > 0) {
-      const { data: authors } = await supabase.from('profiles').select('user_id, nickname, email').in('user_id', authorIds);
-      const map = new Map<string, string>();
-      (authors || []).forEach(a => map.set(a.user_id, a.nickname || a.email?.split('@')[0] || 'User'));
-      setCommentAuthors(map);
-    }
-  };
-
-  const submitReply = async (parentId: string) => {
-    if (!replyText.trim() || !expandedPost) return;
-    await supabase.from('post_interactions').insert({
-      post_id: expandedPost.id, user_id: userId, type: 'COMMENT', comment_text: replyText.trim(), parent_comment_id: parentId,
-    });
-    await supabase.from('community_posts').update({ comment_count: expandedPost.comment_count + 1 }).eq('id', expandedPost.id);
-    setReplyText('');
-    setReplyTo(null);
-    openComments(expandedPost);
-    loadPosts();
+    setComments((data as any[]) || []);
   };
 
   const submitComment = async () => {
@@ -598,14 +573,13 @@ export default function CommunityFeed({ userId, profile }: Props) {
 
       // Auto-stop when user ends screen share or camera is disconnected
       stream.getVideoTracks()[0].onended = () => stopLiveStream();
-    } catch (err: unknown) {
-      const e = err as { name?: string; message?: string };
-      if (e?.name === 'NotAllowedError') {
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') {
         platformAlert.error('Permission Denied', 'Camera/screen access was denied. Please allow access in your browser settings and try again.');
-      } else if (e?.name === 'NotFoundError') {
+      } else if (err?.name === 'NotFoundError') {
         platformAlert.error('No Camera', 'No camera found on this device. Try screen sharing instead.');
       } else {
-        platformAlert.error('Live Failed', `Could not start stream: ${e?.message || 'Unknown error'}. Please try again.`);
+        platformAlert.error('Live Failed', `Could not start stream: ${err?.message || 'Unknown error'}. Please try again.`);
       }
     }
     setLiveStarting(false);
@@ -624,7 +598,7 @@ export default function CommunityFeed({ userId, profile }: Props) {
     setLiveSource(null);
     setLiveTitle('');
     const { data } = await supabase.from('live_sessions').select('*').eq('status', 'live').order('created_at', { ascending: false });
-    setLiveSessions((data as Array<Record<string, unknown>>) || []);
+    setLiveSessions((data as any[]) || []);
   };
 
   const switchCamera = async () => {
@@ -766,27 +740,12 @@ export default function CommunityFeed({ userId, profile }: Props) {
       {(feedTab === 'discover' || feedTab === 'following' || feedTab === 'campaign' || feedTab === 'news') && renderComposeBox()}
 
       {feedTab === 'announcements' && (
-        <div className="space-y-3">
-          {platformAnnouncements.length === 0 ? (
-            <div className="bg-[#1e2026] border border-[#2b2f36] rounded-2xl p-4 text-center">
-              <Pin className="w-8 h-8 text-[#474d57] mx-auto mb-2" />
-              <p className="text-sm text-[#848e9c]">No official announcements yet.</p>
-            </div>
-          ) : (
-            <>
-              {platformAnnouncements.map(ann => (
-            <div key={ann.id} className="bg-[#1e2026] border border-[#2b2f36] rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ann.type === 'warning' ? 'bg-amber-500/20 text-amber-400' : ann.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : ann.type === 'maintenance' ? 'bg-rose-500/20 text-rose-400' : 'bg-sky-500/20 text-sky-400'}`}>{ann.type.toUpperCase()}</span>
-                <span className="text-[10px] text-[#474d57]">{ann.author_role === 'owner' ? 'Owner' : 'Admin'}</span>
-                <span className="text-[10px] text-[#474d57] ml-auto">{formatTime(ann.created_at)}</span>
-              </div>
-              <p className="text-sm font-bold text-[#eaecef] mb-1">{ann.title}</p>
-              <p className="text-xs text-[#848e9c]">{ann.content}</p>
-            </div>
-              ))}
-            </>
-          )}
+        <div className="bg-[#1e2026] border border-[#2b2f36] rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Pin className="w-4 h-4 text-[#f0b90b]" />
+            <p className="text-sm font-bold text-[#eaecef]">Official Announcements</p>
+          </div>
+          <p className="text-xs text-[#848e9c]">Only CEO Exchange admin and owner can post announcements. Users can read official updates here.</p>
         </div>
       )}
 
@@ -907,7 +866,6 @@ export default function CommunityFeed({ userId, profile }: Props) {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold text-[#eaecef] truncate">
                       {post.author_email ? post.author_email.split('@')[0] : 'Unknown'}
-                      {post.author_uid && <span className="text-xs text-[#474d57] ml-1.5 font-normal">UID: {post.author_uid}</span>}
                     </p>
                     <span className="text-xs text-[#474d57]">· {formatTime(post.created_at)}</span>
                     {post.is_announcement && <span className="text-xs text-[#f0b90b] font-bold bg-[#f0b90b]/10 px-1.5 py-0.5 rounded">Official</span>}
@@ -1025,42 +983,13 @@ export default function CommunityFeed({ userId, profile }: Props) {
               {comments.length === 0 ? (
                 <p className="text-sm text-[#848e9c] text-center py-8">No comments yet. Start the conversation!</p>
               ) : (
-                comments.filter(c => !c.parent_comment_id).map(c => (
-                  <div key={c.id} className="space-y-2">
-                    <div className="flex gap-3">
-                      <div className="w-7 h-7 rounded-full bg-[#2b2f36] flex items-center justify-center text-xs font-bold text-[#eaecef] flex-shrink-0">
-                        {(commentAuthors.get(c.user_id) || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-amber-400">{commentAuthors.get(c.user_id) || 'User'}</p>
-                        <p className="text-sm text-[#eaecef] break-words">{c.comment_text}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <p className="text-xs text-[#474d57]">{formatTime(c.created_at)}</p>
-                          <button onClick={() => setReplyTo(replyTo === c.id ? null : c.id)} className="text-xs text-[#848e9c] hover:text-amber-400 font-semibold">Reply</button>
-                        </div>
-                      </div>
+                comments.map(c => (
+                  <div key={c.id} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[#2b2f36] flex items-center justify-center text-xs font-bold text-[#eaecef] flex-shrink-0">U</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-[#eaecef] break-words">{c.comment_text}</p>
+                      <p className="text-xs text-[#474d57] mt-0.5">{formatTime(c.created_at)}</p>
                     </div>
-                    {/* Threaded replies */}
-                    {comments.filter(r => r.parent_comment_id === c.id).map(reply => (
-                      <div key={reply.id} className="flex gap-3 ml-10">
-                        <div className="w-6 h-6 rounded-full bg-[#2b2f36] flex items-center justify-center text-[10px] font-bold text-[#eaecef] flex-shrink-0">
-                          {(commentAuthors.get(reply.user_id) || 'U').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-sky-400">{commentAuthors.get(reply.user_id) || 'User'}</p>
-                          <p className="text-sm text-[#eaecef] break-words">{reply.comment_text}</p>
-                          <p className="text-xs text-[#474d57] mt-0.5">{formatTime(reply.created_at)}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {/* Reply input */}
-                    {replyTo === c.id && (
-                      <div className="flex gap-2 ml-10">
-                        <input value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Write a reply..." maxLength={300}
-                          className="flex-1 bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-2 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]" />
-                        <button onClick={() => submitReply(c.id)} disabled={!replyText.trim()} className="bg-[#f0b90b] disabled:opacity-50 text-black font-bold text-sm px-3 rounded-xl">Reply</button>
-                      </div>
-                    )}
                   </div>
                 ))
               )}

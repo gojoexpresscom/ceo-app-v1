@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft, RefreshCw, Shield, ChevronRight, Plus, X, Clock, Check,
   UserCheck, AlertCircle, TrendingUp, Search, Lock, MessageCircle,
-  Send, AlertTriangle, FileImage, Zap, Banknote,
+  Send, AlertTriangle, FileImage, Zap, Eye, Banknote,
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import { platformAlert } from '@/components/modals/PlatformAlert';
@@ -41,18 +41,6 @@ const BASE_RATES: Record<string, number> = {
   USD: 1, ETB: 138.5, EUR: 0.92, NGN: 1580, KES: 129, GBP: 0.79,
   AED: 3.67, INR: 83.5, CAD: 1.36, AUD: 1.52, ZAR: 18.5, GHS: 15.2,
 };
-
-// P2P ETB pricing: Buy at 180 ETB, Sell at 175 ETB (5 ETB margin for merchant)
-const ETB_BUY_PRICE = 180;
-const ETB_SELL_PRICE = 175;
-
-function getP2PPrice(fiat: string, side: 'BUY' | 'SELL', fxRate: number): number {
-  if (fiat === 'ETB') {
-    return side === 'BUY' ? ETB_BUY_PRICE : ETB_SELL_PRICE;
-  }
-  // For non-ETB fiats, use standard FX rate
-  return fxRate;
-}
 
 type P2PAd = {
   id: string;
@@ -109,7 +97,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showCreateAd, setShowCreateAd] = useState(false);
-  const [activeTrade, setActiveTrade] = useState<Record<string, unknown> | null>(null);
+  const [activeTrade, setActiveTrade] = useState<any | null>(null);
   const [tradeTimer, setTradeTimer] = useState(900); // 15 min
   const [tradeAmount, setTradeAmount] = useState('');
   const [tradeStep, setTradeStep] = useState<'amount' | 'payment' | 'waiting' | 'complete' | 'disputed'>('amount');
@@ -120,11 +108,11 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
-  const [userPaymentMethods, setUserPaymentMethods] = useState<Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<{ payment_type: string; account_name: string; account_number: string; bank_name?: string } | null>(null);
+  const [userPaymentMethods, setUserPaymentMethods] = useState<any[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<any | null>(null);
   const [kycFullName, setKycFullName] = useState<string>('');
   const [aiScanning, setAiScanning] = useState(false);
-  const [, setTradeComplete] = useState(false);
+  const [tradeComplete, setTradeComplete] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Create ad form
@@ -137,21 +125,6 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   const [adTotal, setAdTotal] = useState('');
   const [adMethods, setAdMethods] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
-  const [merchantReqLoading, setMerchantReqLoading] = useState(false);
-
-  const requestMerchantAccess = async () => {
-    setMerchantReqLoading(true);
-    await supabase.from('merchant_requests').insert({
-      user_id: userId,
-      user_email: profile.email,
-      request_type: 'both',
-      message: 'I would like to become a P2P merchant to buy and sell crypto.',
-      status: 'pending',
-    });
-    await supabase.from('profiles').update({ p2p_merchant_status: 'PENDING' }).eq('user_id', userId);
-    platformAlert.success('Request Sent', 'Your merchant access request has been sent to admin for review.');
-    setMerchantReqLoading(false);
-  };
 
   const loadAds = useCallback(async () => {
     setLoading(true);
@@ -199,7 +172,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('p2p_payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-      setUserPaymentMethods((data as Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>) || []);
+      setUserPaymentMethods((data as any[]) || []);
       const { data: profileData } = await supabase.from('profiles').select('kyc_full_name, kyc_status').eq('user_id', userId).maybeSingle();
       setKycFullName(profileData?.kyc_full_name || '');
       // Also check user_verifications for the authoritative status
@@ -230,7 +203,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
   useEffect(() => {
     if (showTradeChat && activeTrade) loadTradeMessages();
-  }, [showTradeChat, activeTrade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showTradeChat, activeTrade]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -243,7 +216,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
     // Subscribe to new messages
     const channel = supabase.channel(`p2p-chat-${activeTrade.trade_id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'p2p_chat', filter: `trade_id=eq.${activeTrade.trade_id}` }, (payload: { new: TradeMessage }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'p2p_chat', filter: `trade_id=eq.${activeTrade.trade_id}` }, (payload: any) => {
         setTradeMessages(prev => [...prev, payload.new as TradeMessage]);
       })
       .subscribe();
@@ -366,10 +339,11 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     setAiScanning(true);
 
     // AI scan payment proof if uploaded
-    const aiFlags: string[] = [];
+    let aiFlags: string[] = [];
     let aiRiskScore = 0;
 
     if (paymentProof) {
+      const ext = paymentProof.name.slice(paymentProof.name.lastIndexOf('.'));
       const path = `p2p-proof/${userId}/${Date.now()}-${paymentProof.name}`;
       await supabase.storage.from('post-media').upload(path, paymentProof);
       const proofUrl = supabase.storage.from('post-media').getPublicUrl(path).data.publicUrl;
@@ -499,22 +473,13 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     setAdMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
   const createAd = async () => {
-    if (!adMin || !adMax || adMethods.length === 0) return;
+    if (!adPrice || !adMin || !adMax || adMethods.length === 0) return;
 
     // KYC check
     if (profile.kyc_status !== 'VERIFIED') {
       platformAlert.warn('KYC Required', 'You must complete identity verification before creating P2P ads.');
       return;
     }
-
-    // Merchant access check — users must be approved merchants to create ads
-    if (profile.p2p_merchant_status !== 'APPROVED') {
-      platformAlert.warn('Merchant Access Required', 'You must request merchant access via Support Inbox first. Admin/Owner will review your request.');
-      return;
-    }
-
-    // Auto-calculate price based on ETB rates: Buy=180, Sell=175
-    const autoPrice = getP2PPrice(adFiat, adSide, fxRates[adFiat] || 1);
 
     setCreating(true);
 
@@ -531,7 +496,7 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
     const merchantName = profile.nickname || profile.email.split('@')[0];
     await supabase.from('p2p_orders').insert({
       merchant_name: merchantName,
-      price_etb: autoPrice,
+      price_etb: parseFloat(adPrice),
       min_limit: parseFloat(adMin),
       max_limit: parseFloat(adMax),
       payment_methods: adMethods,
@@ -563,9 +528,11 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
       bank_name: bank,
     });
     const { data } = await supabase.from('p2p_payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    setUserPaymentMethods((data as Array<{ payment_type: string; account_name: string; account_number: string; bank_name?: string }>) || []);
+    setUserPaymentMethods((data as any[]) || []);
   };
 
+  const currentFiat = FIATS.find(f => f.code === fiat)!;
+  const currentCrypto = CRYPTOS.find(c => c.symbol === crypto)!;
   const filtered = ads.filter(a => {
     if (search && !a.merchant_name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -616,23 +583,6 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
           <span className="text-sm font-bold text-[#eaecef]">1 USD = {fxRates[fiat]?.toFixed(2) || '—'} {fiat}</span>
         </div>
       </div>
-
-      {/* Merchant Access Request Banner */}
-      {profile.p2p_merchant_status !== 'APPROVED' && (
-        <div className="px-4 pb-3">
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
-            <Shield className="w-5 h-5 text-amber-400 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs font-bold text-amber-400">Merchant Access Required</p>
-              <p className="text-[10px] text-[#848e9c]">Request access via Support to create P2P ads</p>
-            </div>
-            <button onClick={() => requestMerchantAccess()} disabled={merchantReqLoading}
-              className="bg-amber-500/20 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50">
-              {merchantReqLoading ? 'Sending...' : profile.p2p_merchant_status === 'PENDING' ? 'Pending' : 'Request'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Search */}
       <div className="px-4 pb-3">
@@ -930,13 +880,9 @@ export default function P2PScreen({ userId, profile, onBack }: Props) {
 
               <div>
                 <p className="text-xs text-[#848e9c] mb-1.5">Price per {adCrypto} ({adFiat})</p>
-                <div className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef]">
-                  <span className="font-bold text-amber-400">{getP2PPrice(adFiat, adSide, fxRates[adFiat] || 1).toFixed(2)} {adFiat}</span>
-                  <span className="text-xs text-[#474d57] ml-2">
-                    {adSide === 'BUY' ? '(Buy rate — market standard)' : '(Sell rate — 5 ETB merchant margin)'}
-                  </span>
-                </div>
-                <p className="text-xs text-[#474d57] mt-1">Price is auto-set based on Binance P2P standard rates.</p>
+                <input type="number" value={adPrice} onChange={e => setAdPrice(e.target.value)} placeholder={fxRates[adFiat]?.toFixed(2) || '0.00'}
+                  className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-3 text-sm text-[#eaecef] outline-none focus:border-[#f0b90b]" />
+                <p className="text-xs text-[#474d57] mt-1">Market rate: {fxRates[adFiat]?.toFixed(2) || '—'} {adFiat}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

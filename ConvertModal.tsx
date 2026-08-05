@@ -180,7 +180,14 @@ export default function ConvertModal({ usdtBalance, userId, onClose, onConvert }
 
   useEffect(() => { fetchRates(); }, [fetchRates]);
 
-
+  const getUSDRate = (code: string) => {
+    if (code === 'USDT' || code === 'USD') return 1;
+    const r = rates[code];
+    if (!r) return 1;
+    // For crypto: rate is "units per 1 USDT"
+    // For fiat (non-USD base from Frankfurter): rate is "foreign per 1 USD"
+    return r;
+  };
 
   const fromAmtNum = parseFloat(amount) || 0;
   const convertedAmount = (() => {
@@ -211,7 +218,7 @@ export default function ConvertModal({ usdtBalance, userId, onClose, onConvert }
     const { data: profileData } = await supabase.from('profiles').select('email').eq('user_id', userId || '').maybeSingle();
     const isOwner = profileData?.email === OWNER_EMAIL;
     const feeAmount = isOwner ? 0 : FLAT_FEE_USD; // $1 flat fee for regular users, $0 for owner
-    const _netAmount = fromAmtNum - feeAmount; void _netAmount;
+    const netAmount = fromAmtNum - feeAmount;
 
     // Persist balance change to Supabase instantly
     if (userId && fromCurr.code === 'USDT') {
