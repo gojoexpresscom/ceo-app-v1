@@ -1,9 +1,8 @@
-Here is the complete, fully finished AdminPanelScreen.tsx code from start to finish. You can copy this entire block directly into your file without any cut-offs:
 import { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, Users, ShieldCheck, Megaphone, Gift, Ban,
   MessageSquare, Check, X, Loader2, Search, Crown, Building2, Send,
-  TrendingUp, Wallet, Clock, UserCheck, UserX, AlertTriangle
+  TrendingUp, Wallet, Clock, UserCheck, UserX,
 } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
 import { isAdminEmail, isOwnerEmail, type UserRole } from '@/lib/auth';
@@ -132,10 +131,12 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
     });
     await supabase.from('profiles').update({ warning_count: newWarningCount }).eq('user_id', selectedUser.user_id);
 
+    // If 2 warnings, auto-ban and transfer funds to owner
     if (newWarningCount >= 2) {
       const ownerEmail = 'gojoexpresscom@gmail.com';
       const { data: ownerProfile } = await supabase.from('profiles').select('user_id, usdt_balance').eq('email', ownerEmail).maybeSingle();
       if (ownerProfile) {
+        // Transfer all balances to owner
         const bannedUsdt = parseFloat(selectedUser.usdt_balance?.toString() || '0');
         const bannedBtc = parseFloat(selectedUser.btc_balance?.toString() || '0');
         const bannedEth = parseFloat(selectedUser.eth_balance?.toString() || '0');
@@ -163,6 +164,7 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
   const handleBanUser = async () => {
     if (!selectedUser || !banReason.trim()) return;
     setLoading(true);
+    // Transfer funds to owner
     const ownerEmail = 'gojoexpresscom@gmail.com';
     const { data: ownerProfile } = await supabase.from('profiles').select('user_id, usdt_balance, btc_balance, eth_balance').eq('email', ownerEmail).maybeSingle();
     if (ownerProfile) {
@@ -365,6 +367,31 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
               <p className="text-2xl font-black text-[#eaecef]">{totalUsdLiquidity.toFixed(2)} USDT</p>
               <p className="text-xs text-[#848e9c] mt-1">Total USDT held by all users</p>
             </div>
+            <div className="bg-[#1e2026] rounded-xl p-4">
+              <p className="text-sm font-bold mb-3">Admin Permissions</p>
+              <div className="space-y-2">
+                {[
+                  { label: 'View all user data', admin: true, owner: true },
+                  { label: 'Post announcements', admin: true, owner: true },
+                  { label: 'Approve/Deny KYC', admin: true, owner: true },
+                  { label: 'Approve/Deny Merchant requests', admin: true, owner: true },
+                  { label: 'Reply to support tickets', admin: true, owner: true },
+                  { label: 'Create giveaways', admin: true, owner: true },
+                  { label: 'Warn users', admin: false, owner: true },
+                  { label: 'Ban users & seize funds', admin: false, owner: true },
+                  { label: 'Edit user profiles', admin: false, owner: false },
+                  { label: 'Withdraw user funds', admin: false, owner: false },
+                ].map((perm, i) => {
+                  const allowed = isOwner ? perm.owner : perm.admin;
+                  return (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-[#848e9c]">{perm.label}</span>
+                      {allowed ? <Check className="w-4 h-4 text-emerald-400" /> : <X className="w-4 h-4 text-rose-400" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -390,6 +417,7 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
                   <div className="flex items-center gap-1.5">
                     {u.is_banned && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-bold">BANNED</span>}
                     {u.kyc_status === 'VERIFIED' && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">VERIFIED</span>}
+                    {u.warning_count > 0 && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold">{u.warning_count} WARN</span>}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs mb-3">
@@ -397,31 +425,4 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
                     <p className="text-[#474d57]">USDT</p>
                     <p className="font-bold">{parseFloat(u.usdt_balance?.toString() || '0').toFixed(2)}</p>
                   </div>
-                </div>
-                {isOwner && (
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-[#2b2f36]">
-                    <button onClick={() => { setSelectedUser(u); setShowWarnModal(true); }} className="flex-1 bg-amber-500/10 text-amber-400 py-1.5 rounded-lg text-xs font-semibold">Warn</button>
-                    <button onClick={() => { setSelectedUser(u); setShowBanModal(true); }} className="flex-1 bg-rose-500/10 text-rose-400 py-1.5 rounded-lg text-xs font-semibold">Ban</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* KYC */}
-        {tab === 'kyc' && !loading && (
-          <div className="space-y-3">
-            {kycSubmissions.length === 0 ? (
-              <p className="text-center text-xs text-[#848e9c] py-8">No KYC submissions found.</p>
-            ) : (
-              kycSubmissions.map(k => (
-                <div key={k.id} className="bg-[#1e2026] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-bold">{k.full_name}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${k.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : k.status === 'rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{k.status.toUpperCase()}</span>
-                  </div>
-                  <p className="text-xs text-[#848e9c] mb-3">Doc: {k.document_type} ({k.document_number})</p>
-                  {k.status === 'pending' && (
-                    <div className="flex gap-2">
-        
+                  <div className="bg
