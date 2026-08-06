@@ -187,7 +187,7 @@ export default function ProfileOverviewScreen({ profile, userId, onBack, onOpenU
       {/* Footer */}
       <div className="flex items-center justify-around px-4 py-5 border-t border-[#2b2f36]">
         <button onClick={onBack} className="text-sm text-[#eaecef] flex items-center gap-1 font-medium">
-          CEO Lite <ArrowLeft className="w-3.5 h-3.5" />
+          Back to Home <ArrowLeft className="w-3.5 h-3.5" />
         </button>
         <div className="w-px h-4 bg-[#2b2f36]" />
         <button onClick={() => setModal('about')} className="text-sm text-[#eaecef] flex items-center gap-1 font-medium">

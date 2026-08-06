@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home, TrendingUp, Wallet, User, Gift, Plus, Bell, Menu, Headphones, X, Mail, MessageCircle, Search } from 'lucide-react';
+import { Home, TrendingUp, Wallet, User, Gift, Plus, Bell, Menu, Headphones, X, Mail, Search } from 'lucide-react';
 import { supabase, type Profile } from '@/lib/supabase';
-import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, TELEGRAM_COMMUNITY } from '@/config/constants';
+import { SUPPORT_EMAIL } from '@/config/constants';
 import AuthScreen from '@/components/auth/AuthScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import TradingScreen from '@/screens/TradingScreen';
@@ -23,10 +23,12 @@ import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
 import { PlatformAlertHost } from '@/components/modals/PlatformAlert';
 import AdminPanelScreen from '@/components/admin/AdminPanelScreen';
+import WithdrawScreen from '@/screens/WithdrawScreen';
+import LiveChatModal from '@/components/modals/LiveChatModal';
 import { isAdminEmail, isOwnerEmail } from '@/lib/auth';
 
 type Tab = 'home' | 'markets' | 'assets' | 'earn' | 'profile';
-type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox' | 'adminPanel';
+type Screen = 'main' | 'trading' | 'profileOverview' | 'userCenter' | 'p2p' | 'web3' | 'earnStake' | 'inbox' | 'adminPanel' | 'withdraw';
 
 export default function App() {
   const [session, setSession] = useState<{ user: { id: string; email?: string } } | null>(null);
@@ -185,6 +187,7 @@ export default function App() {
       case 'rewards': setShowRewards(true); break;
       case 'giveaway': setShowGiveaway(true); break;
       case 'allServices': setShowAllServices(true); break;
+      case 'withdraw': setScreen('withdraw'); break;
       default: setScreen('main'); break;
     }
   };
@@ -272,6 +275,29 @@ export default function App() {
   // Earn Staking
   if (screen === 'earnStake') {
     return <EarnScreen userId={userId} profile={profile} onBack={() => setScreen('main')} onProfileUpdate={handleProfileUpdate} />;
+  }
+
+  // Withdraw
+  if (screen === 'withdraw') {
+    return (
+      <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] max-w-md mx-auto">
+        <div className="flex items-center gap-3 p-4 border-b border-[#1e2026] sticky top-0 bg-[#0b0e11] z-10">
+          <button onClick={() => setScreen('main')} className="text-[#eaecef]">
+            <X className="w-6 h-6" />
+          </button>
+          <h1 className="text-base font-bold text-[#eaecef]">Withdraw</h1>
+        </div>
+        <div className="p-4">
+          <WithdrawScreen
+            userEmail={profile.email}
+            userId={userId}
+            usdtBalance={usdtBalance}
+            antiPhishingCode={profile.anti_phishing_code || undefined}
+            onWithdraw={(amount, fee) => updateBalance(Math.max(0, usdtBalance - amount - fee))}
+          />
+        </div>
+      </div>
+    );
   }
 
   // Inbox / Messaging
@@ -437,54 +463,8 @@ export default function App() {
       {showInvite && <InviteFriendsModal userId={userId} profile={profile} onClose={() => setShowInvite(false)} />}
       {showRewards && <RewardsHubModal userId={userId} profile={profile} onClose={() => setShowRewards(false)} onProfileUpdate={handleProfileUpdate} />}
       {showGiveaway && <GiveawayModal userId={userId} profile={profile} onClose={() => setShowGiveaway(false)} onProfileUpdate={handleProfileUpdate} />}
-      {showSupport && <SupportModal onClose={() => setShowSupport(false)} />}
+      {showSupport && <LiveChatModal userId={userId} profile={profile} onClose={() => setShowSupport(false)} />}
       <PlatformAlertHost />
-    </div>
-  );
-}
-
-function SupportModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center max-w-md mx-auto" onClick={onClose}>
-      <div className="w-full bg-[#181a20] rounded-t-2xl pb-8" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-[#2b2f36]">
-          <h3 className="font-bold text-lg text-[#eaecef]">Customer Support</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-[#848e9c]" /></button>
-        </div>
-        <div className="px-5 py-5 space-y-3">
-          <button onClick={() => window.open(SUPPORT_WHATSAPP, '_blank')}
-            className="w-full flex items-center gap-4 bg-[#0b0e11] border border-[#2b2f36] rounded-xl p-4 hover:border-[#25D366]/30 transition-colors text-left">
-            <div className="w-12 h-12 rounded-xl bg-[#25d366]/15 flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-[#25d366]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-[#eaecef]">WhatsApp Community</p>
-              <p className="text-xs text-[#848e9c] truncate">{SUPPORT_WHATSAPP_DISPLAY}</p>
-            </div>
-          </button>
-          <button onClick={() => window.open(TELEGRAM_COMMUNITY, '_blank')}
-            className="w-full flex items-center gap-4 bg-[#0b0e11] border border-[#2b2f36] rounded-xl p-4 hover:border-[#229ED9]/30 transition-colors text-left">
-            <div className="w-12 h-12 rounded-xl bg-[#229ED9]/15 flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-[#229ED9]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-[#eaecef]">Telegram Community</p>
-              <p className="text-xs text-[#848e9c] truncate">CEO Exchange Telegram Group</p>
-            </div>
-          </button>
-          <button onClick={() => window.open(`mailto:${SUPPORT_EMAIL}`, '_blank')}
-            className="w-full flex items-center gap-4 bg-[#0b0e11] border border-[#2b2f36] rounded-xl p-4 hover:border-amber-500/30 transition-colors text-left">
-            <div className="w-12 h-12 rounded-xl bg-[#f0b90b]/15 flex items-center justify-center">
-              <Mail className="w-6 h-6 text-[#f0b90b]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-[#eaecef]">Email Support</p>
-              <p className="text-xs text-[#848e9c] truncate">{SUPPORT_EMAIL}</p>
-            </div>
-          </button>
-          <p className="text-xs text-[#848e9c] text-center pt-2">Our support team is available 24/7 to assist you.</p>
-        </div>
-      </div>
     </div>
   );
 }
