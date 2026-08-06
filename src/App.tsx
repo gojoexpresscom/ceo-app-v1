@@ -22,7 +22,7 @@ import InviteFriendsModal from '@/components/modals/InviteFriendsModal';
 import RewardsHubModal from '@/components/modals/RewardsHubModal';
 import GiveawayModal from '@/components/modals/GiveawayModal';
 import { PlatformAlertHost } from '@/components/modals/PlatformAlert';
-import AdminPanelScreen from '@/screens/AdminPanelScreen';
+import AdminPanelScreen from '@/components/admin/AdminPanelScreen';
 import { isAdminEmail, isOwnerEmail } from '@/lib/auth';
 
 type Tab = 'home' | 'markets' | 'assets' | 'earn' | 'profile';

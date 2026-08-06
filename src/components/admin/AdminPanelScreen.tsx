@@ -425,4 +425,192 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
                     <p className="text-[#474d57]">USDT</p>
                     <p className="font-bold">{parseFloat(u.usdt_balance?.toString() || '0').toFixed(2)}</p>
                   </div>
-                  <div className="bg
+                  <div className="bg-[#0b0e11] rounded-lg p-2">
+                    <p className="text-[#474d57]">BTC</p>
+                    <p className="font-bold">{parseFloat(u.btc_balance?.toString() || '0').toFixed(6)}</p>
+                  </div>
+                  <div className="bg-[#0b0e11] rounded-lg p-2">
+                    <p className="text-[#474d57]">ETH</p>
+                    <p className="font-bold">{parseFloat(u.eth_balance?.toString() || '0').toFixed(6)}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setSelectedUser(u); setShowWarnModal(true); }} disabled={!isOwner} className="flex-1 text-xs font-bold py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 disabled:opacity-40">Warn</button>
+                  <button onClick={() => { setSelectedUser(u); setShowBanModal(true); }} disabled={!isOwner} className="flex-1 text-xs font-bold py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 disabled:opacity-40">Ban</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* KYC REVIEW */}
+        {tab === 'kyc' && !loading && (
+          <div className="space-y-3">
+            {kycSubmissions.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No KYC submissions.</p> : (
+              kycSubmissions.map(kyc => (
+                <div key={kyc.id} className="bg-[#1e2026] rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-bold">{kyc.full_name}</p>
+                      <p className="text-xs text-[#848e9c]">{kyc.document_type}: {kyc.document_number}</p>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${kyc.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : kyc.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{kyc.status.toUpperCase()}</span>
+                  </div>
+                  {kyc.status === 'pending' && (
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => handleApproveKyc(kyc)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Approve</button>
+                      <button onClick={() => handleDenyKyc(kyc)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">Deny</button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ANNOUNCEMENTS */}
+        {tab === 'announcements' && !loading && (
+          <div className="space-y-4">
+            <div className="bg-[#1e2026] rounded-xl p-4 space-y-3">
+              <p className="text-sm font-bold">Post New Announcement</p>
+              <input type="text" placeholder="Title" value={annTitle} onChange={e => setAnnTitle(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
+              <textarea placeholder="Content" value={annContent} onChange={e => setAnnContent(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none" />
+              <select value={annType} onChange={e => setAnnType(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] focus:outline-none focus:border-[#f0b90b]">
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="promotion">Promotion</option>
+              </select>
+              <button onClick={handlePostAnnouncement} disabled={loading} className="w-full bg-[#f0b90b] text-black font-bold py-2.5 rounded-xl text-sm disabled:opacity-50">Post Announcement</button>
+            </div>
+            {announcements.map(ann => (
+              <div key={ann.id} className="bg-[#1e2026] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ann.type === 'warning' ? 'bg-amber-500/20 text-amber-400' : ann.type === 'maintenance' ? 'bg-rose-500/20 text-rose-400' : ann.type === 'promotion' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>{ann.type.toUpperCase()}</span>
+                  <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-rose-400 hover:text-rose-300"><X className="w-4 h-4" /></button>
+                </div>
+                <p className="text-sm font-bold">{ann.title}</p>
+                <p className="text-xs text-[#848e9c] mt-1">{ann.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* GIVEAWAYS */}
+        {tab === 'giveaways' && !loading && (
+          <div className="space-y-4">
+            <div className="bg-[#1e2026] rounded-xl p-4 space-y-3">
+              <p className="text-sm font-bold">Create Giveaway</p>
+              <input type="text" placeholder="Title" value={giveTitle} onChange={e => setGiveTitle(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
+              <textarea placeholder="Description (optional)" value={giveDesc} onChange={e => setGiveDesc(e.target.value)} rows={2} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none" />
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" placeholder="Amount" value={giveAmount} onChange={e => setGiveAmount(e.target.value)} className="bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
+                <select value={giveCurrency} onChange={e => setGiveCurrency(e.target.value)} className="bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] focus:outline-none focus:border-[#f0b90b]">
+                  <option value="USDT">USDT</option>
+                  <option value="BTC">BTC</option>
+                  <option value="ETH">ETH</option>
+                </select>
+              </div>
+              <input type="number" placeholder="Number of codes" value={giveCodes} onChange={e => setGiveCodes(e.target.value)} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b]" />
+              <button onClick={handleCreateGiveaway} disabled={loading} className="w-full bg-[#f0b90b] text-black font-bold py-2.5 rounded-xl text-sm disabled:opacity-50">Create Giveaway Codes</button>
+            </div>
+          </div>
+        )}
+
+        {/* SUPPORT TICKETS */}
+        {tab === 'support' && !loading && (
+          <div className="space-y-3">
+            {tickets.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No support tickets.</p> : (
+              tickets.map(ticket => (
+                <div key={ticket.id} className="bg-[#1e2026] rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-bold">{ticket.subject}</p>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'open' ? 'bg-amber-500/20 text-amber-400' : ticket.status === 'in_progress' ? 'bg-sky-500/20 text-sky-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{ticket.status.replace('_', ' ').toUpperCase()}</span>
+                  </div>
+                  <p className="text-xs text-[#848e9c]">{ticket.user_email}</p>
+                  <p className="text-xs text-[#eaecef] mt-2">{ticket.message}</p>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => setActiveTicket(ticket)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">Reply</button>
+                    <button onClick={() => handleResolveTicket(ticket)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Resolve</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* MERCHANT REQUESTS */}
+        {tab === 'merchant' && !loading && (
+          <div className="space-y-3">
+            {merchantReqs.length === 0 ? <p className="text-sm text-[#848e9c] text-center py-8">No merchant requests.</p> : (
+              merchantReqs.map(req => (
+                <div key={req.id} className="bg-[#1e2026] rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-bold">{req.user_email}</p>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${req.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : req.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{req.status.toUpperCase()}</span>
+                  </div>
+                  <p className="text-xs text-[#848e9c]">{req.request_type}</p>
+                  {req.message && <p className="text-xs text-[#eaecef] mt-2">{req.message}</p>}
+                  {req.status === 'pending' && (
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => handleApproveMerchant(req)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Approve</button>
+                      <button onClick={() => handleDenyMerchant(req)} className="flex-1 text-xs font-bold py-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">Deny</button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Warn Modal */}
+      {showWarnModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-4" onClick={() => setShowWarnModal(false)}>
+          <div className="w-full max-w-sm bg-[#181a20] rounded-2xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">Warn User</h3>
+              <button onClick={() => setShowWarnModal(false)}><X className="w-5 h-5 text-[#848e9c]" /></button>
+            </div>
+            <p className="text-xs text-[#848e9c] mb-3">Warning will be sent to: <span className="text-[#eaecef] font-bold">{selectedUser.email}</span></p>
+            <textarea placeholder="Reason for warning..." value={warnReason} onChange={e => setWarnReason(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none mb-3" />
+            <p className="text-[10px] text-amber-400 mb-3">Note: 2 warnings will auto-ban the user and transfer their funds to the owner account.</p>
+            <button onClick={handleWarnUser} disabled={loading} className="w-full bg-amber-500 text-black font-bold py-3 rounded-xl text-sm disabled:opacity-50">Send Warning</button>
+          </div>
+        </div>
+      )}
+
+      {/* Ban Modal */}
+      {showBanModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-4" onClick={() => setShowBanModal(false)}>
+          <div className="w-full max-w-sm bg-[#181a20] rounded-2xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg text-rose-400">Ban User</h3>
+              <button onClick={() => setShowBanModal(false)}><X className="w-5 h-5 text-[#848e9c]" /></button>
+            </div>
+            <p className="text-xs text-[#848e9c] mb-3">Banning: <span className="text-[#eaecef] font-bold">{selectedUser.email}</span></p>
+            <p className="text-xs text-rose-400 mb-3">All funds (USDT, BTC, ETH) will be transferred to the owner account and the user will be permanently banned.</p>
+            <textarea placeholder="Reason for ban..." value={banReason} onChange={e => setBanReason(e.target.value)} rows={3} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-rose-500 resize-none mb-3" />
+            <button onClick={handleBanUser} disabled={loading} className="w-full bg-rose-500 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50">Ban & Seize Funds</button>
+          </div>
+        </div>
+      )}
+
+      {/* Ticket Reply Modal */}
+      {activeTicket && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-4" onClick={() => { setActiveTicket(null); setReplyText(''); }}>
+          <div className="w-full max-w-sm bg-[#181a20] rounded-2xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">Reply to Ticket</h3>
+              <button onClick={() => { setActiveTicket(null); setReplyText(''); }}><X className="w-5 h-5 text-[#848e9c]" /></button>
+            </div>
+            <p className="text-xs text-[#848e9c] mb-1">Subject: <span className="text-[#eaecef]">{activeTicket.subject}</span></p>
+            <p className="text-xs text-[#848e9c] mb-3">From: <span className="text-[#eaecef]">{activeTicket.user_email}</span></p>
+            <textarea placeholder="Type your reply..." value={replyText} onChange={e => setReplyText(e.target.value)} rows={4} className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-4 py-2.5 text-sm text-[#eaecef] placeholder:text-[#474d57] focus:outline-none focus:border-[#f0b90b] resize-none mb-3" />
+            <button onClick={handleReplyTicket} disabled={loading || !replyText.trim()} className="w-full bg-[#f0b90b] text-black font-bold py-3 rounded-xl text-sm disabled:opacity-50">Send Reply</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
