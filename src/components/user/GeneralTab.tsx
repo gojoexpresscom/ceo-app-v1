@@ -5,17 +5,17 @@ import {
   Palette,
   Eye,
   HelpCircle,
-  BarChart3,
-  HeadphonesIcon,
   MessageSquare,
   Info,
   HardDrive,
   Star,
   Sun,
   Moon,
+  Mail,
 } from 'lucide-react';
 import type { UserProfile } from '@/types';
 import { Row, Toggle, SectionCard, Modal, PrimaryButton, useModalState } from './ui';
+import { SUPPORT_EMAIL } from '@/config/constants';
 
 type UpdateFn = (patch: Partial<UserProfile>) => Promise<{ error: string | null }>;
 
@@ -32,10 +32,15 @@ export function GeneralTab({
   const currencyModal = useModalState();
   const themeModal = useModalState();
   const colorPrefModal = useModalState();
+  const helpModal = useModalState();
+  const supportModal = useModalState();
+  const aboutModal = useModalState();
+  const storageModal = useModalState();
+  const rateModal = useModalState();
 
   const showToast = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2000);
+    setTimeout(() => setToast(null), 2500);
   };
 
   const handleToggle = async (field: keyof UserProfile, value: boolean, label: string) => {
@@ -56,16 +61,16 @@ export function GeneralTab({
       )}
 
       <SectionCard title="Display">
-        <Row label="Language" value={profile.language} onClick={langModal.openModal} />
-        <Row label="Currency Display" value={profile.currency_display} onClick={currencyModal.openModal} />
-        <Row label="Color Theme" value={profile.color_theme === 'dark' ? 'Dark' : 'Light'} onClick={themeModal.openModal} />
-        <Row label="Color Preferences" value={profile.color_preferences === 'green_red' ? 'Green / Red' : 'Red / Green'} onClick={colorPrefModal.openModal} />
+        <Row label="Language" value={profile.preferred_language} onClick={langModal.openModal} />
+        <Row label="Currency Display" value={profile.preferred_currency} onClick={currencyModal.openModal} />
+        <Row label="Color Theme" value="Dark Mode" onClick={themeModal.openModal} />
+        <Row label="Color Preferences (Chart Candles)" value={profile.color_up === 'red' ? 'Red Up / Green Down' : 'Green Up / Red Down'} onClick={colorPrefModal.openModal} />
         <Row
           label="Always on (no screen lock)"
           badge={
             <Toggle
-              checked={profile.always_on_enabled}
-              onChange={(v) => handleToggle('always_on_enabled', v, 'Always on')}
+              checked={profile.app_lock_enabled ?? false}
+              onChange={(v) => handleToggle('app_lock_enabled', v, 'Always on')}
             />
           }
           rightIcon={false}
@@ -73,64 +78,26 @@ export function GeneralTab({
       </SectionCard>
 
       <SectionCard title="Support">
-        <Row
-          label="Help Center"
-          onClick={() => showToast('Opening Help Center')}
-        />
-        <Row
-          label="Trade Market Overview"
-          onClick={() => showToast('Opening Trade Market Overview')}
-        />
-        <Row
-          label="Contact Support"
-          onClick={() => showToast('Opening Contact Support')}
-        />
-        <Row
-          label="User Feedback"
-          onClick={() => showToast('Opening User Feedback')}
-        />
-        <Row
-          label="About Us"
-          onClick={() => showToast('Opening About Us')}
-        />
+        <Row label="Help Center" onClick={helpModal.openModal} />
+        <Row label="Contact Support" onClick={supportModal.openModal} />
+        <Row label="User Feedback" onClick={() => window.location.href = `mailto:${SUPPORT_EMAIL}?subject=CEO%20Exchange%20Feedback`} />
+        <Row label="About Us" onClick={aboutModal.openModal} />
       </SectionCard>
 
       <SectionCard title="System">
-        <Row
-          label="Storage Management"
-          onClick={() => showToast('Opening Storage Management')}
-        />
-        <Row
-          label="Rate Our App"
-          onClick={() => showToast('Opening Rate Our App')}
-        />
+        <Row label="Storage Management" onClick={storageModal.openModal} />
+        <Row label="Rate Our App" onClick={rateModal.openModal} />
       </SectionCard>
 
-      {/* Modals */}
-      <LanguageModal
-        modal={langModal}
-        current={profile.language}
-        update={update}
-        showToast={showToast}
-      />
-      <CurrencyModal
-        modal={currencyModal}
-        current={profile.currency_display}
-        update={update}
-        showToast={showToast}
-      />
-      <ThemeModal
-        modal={themeModal}
-        current={profile.color_theme}
-        update={update}
-        showToast={showToast}
-      />
-      <ColorPrefModal
-        modal={colorPrefModal}
-        current={profile.color_preferences}
-        update={update}
-        showToast={showToast}
-      />
+      <LanguageModal modal={langModal} current={profile.preferred_language} update={update} showToast={showToast} />
+      <CurrencyModal modal={currencyModal} current={profile.preferred_currency} update={update} showToast={showToast} />
+      <ThemeModal modal={themeModal} update={update} showToast={showToast} />
+      <ColorPrefModal modal={colorPrefModal} current={profile.color_up || 'green'} update={update} showToast={showToast} />
+      <HelpModal modal={helpModal} />
+      <SupportModal modal={supportModal} />
+      <AboutModal modal={aboutModal} />
+      <ComingSoonModal modal={storageModal} title="Storage Management" />
+      <ComingSoonModal modal={rateModal} title="Rate Our App" />
     </div>
   );
 }
@@ -146,12 +113,12 @@ function LanguageModal({
   update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const options = ['English', '繁體中文', '简体中文', 'Português', 'Español', 'Français', 'Deutsch', 'Русский', 'Türkçe', '日本語', '한국어'];
+  const options = ['English', '繁體中文', '简体中文', 'Português', 'Español', 'Français', 'Deutsch', 'Русский', 'Türkçe', '日本語', '한국어', 'العربية', 'हिन्दी', 'Amharic'];
   const [val, setVal] = useState(current);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ language: val });
+    const res = await update({ preferred_language: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -198,12 +165,12 @@ function CurrencyModal({
   update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const options = ['USD', 'EUR', 'GBP', 'JPY', 'KRW', 'AUD', 'CAD', 'BRL', 'INR', 'RUB', 'TRY', 'SGD'];
+  const options = ['USD', 'EUR', 'GBP', 'JPY', 'KRW', 'AUD', 'CAD', 'BRL', 'INR', 'RUB', 'TRY', 'SGD', 'CNY', 'ETB', 'AED', 'ZAR'];
   const [val, setVal] = useState(current);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ currency_display: val });
+    const res = await update({ preferred_currency: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -241,23 +208,21 @@ function CurrencyModal({
 
 function ThemeModal({
   modal,
-  current,
   update,
   showToast,
 }: {
   modal: ReturnType<typeof useModalState>;
-  current: 'dark' | 'light';
   update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const [val, setVal] = useState<'dark' | 'light'>(current);
+  const [val, setVal] = useState<'dark' | 'light'>('dark');
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ color_theme: val });
+    const res = await update({ color_up: val === 'dark' ? 'green' : 'green' });
     setSaving(false);
     if (res.error) {
-      showToast('Failed to update');
+      showToast('Failed to update theme');
     } else {
       showToast('Theme updated');
       modal.closeModal();
@@ -308,14 +273,14 @@ function ColorPrefModal({
   showToast: (m: string) => void;
 }) {
   const options: { value: string; label: string; up: string; down: string }[] = [
-    { value: 'green_red', label: 'Green Up / Red Down', up: 'bg-green-500', down: 'bg-red-500' },
-    { value: 'red_green', label: 'Red Up / Green Down', up: 'bg-red-500', down: 'bg-green-500' },
+    { value: 'green', label: 'Green Up / Red Down', up: 'bg-green-500', down: 'bg-red-500' },
+    { value: 'red', label: 'Red Up / Green Down', up: 'bg-red-500', down: 'bg-green-500' },
   ];
   const [val, setVal] = useState(current);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ color_preferences: val });
+    const res = await update({ color_up: val as 'green' | 'red' });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -350,6 +315,90 @@ function ColorPrefModal({
       <PrimaryButton onClick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Save'}
       </PrimaryButton>
+    </Modal>
+  );
+}
+
+function HelpModal({ modal }: { modal: ReturnType<typeof useModalState> }) {
+  return (
+    <Modal open={modal.open} onClose={modal.closeModal} title="Help Center">
+      <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+        <HelpCircle className="h-4 w-4" />
+        Need help? Contact our support team directly.
+      </div>
+      <a
+        href="https://t.me/CEO_ExchangeAdmin"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full rounded-lg bg-yellow-500 py-2.5 text-center text-sm font-medium text-black hover:bg-yellow-400"
+      >
+        Open Telegram Support
+      </a>
+    </Modal>
+  );
+}
+
+function SupportModal({ modal }: { modal: ReturnType<typeof useModalState> }) {
+  return (
+    <Modal open={modal.open} onClose={modal.closeModal} title="Contact Support">
+      <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+        <MessageSquare className="h-4 w-4" />
+        Create a support ticket and our team will respond.
+      </div>
+      <a
+        href="https://t.me/CEO_ExchangeAdmin"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full rounded-lg bg-yellow-500 py-2.5 text-center text-sm font-medium text-black hover:bg-yellow-400"
+      >
+        Open Live Chat
+      </a>
+    </Modal>
+  );
+}
+
+function AboutModal({ modal }: { modal: ReturnType<typeof useModalState> }) {
+  return (
+    <Modal open={modal.open} onClose={modal.closeModal} title="About Us">
+      <div className="space-y-3 text-sm text-gray-300">
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <Info className="h-4 w-4" />
+          About CEO Exchange
+        </div>
+        <p>
+          CEO Exchange is a cryptocurrency trading platform built by Ethiopians, for the Ethiopian people and the global community.
+        </p>
+        <p>
+          Our mission is to provide a secure, accessible, and professional trading experience that connects local users with global markets. We believe in empowering our community with the tools to trade, invest, and grow their wealth in the digital economy.
+        </p>
+        <p>
+          From Addis Ababa to the world, CEO Exchange is committed to delivering excellence, transparency, and innovation in every transaction.
+        </p>
+      </div>
+      <PrimaryButton onClick={modal.closeModal}>Close</PrimaryButton>
+    </Modal>
+  );
+}
+
+function ComingSoonModal({
+  modal,
+  title,
+}: {
+  modal: ReturnType<typeof useModalState>;
+  title: string;
+}) {
+  return (
+    <Modal open={modal.open} onClose={modal.closeModal} title={title}>
+      <div className="flex flex-col items-center gap-3 py-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/15">
+          {title.includes('Storage') ? <HardDrive className="h-8 w-8 text-yellow-400" /> : <Star className="h-8 w-8 text-yellow-400" />}
+        </div>
+        <p className="text-sm text-gray-400">Coming Soon</p>
+        <p className="text-center text-xs text-gray-500">
+          This feature is under development and will be available in a future update.
+        </p>
+      </div>
+      <PrimaryButton onClick={modal.closeModal}>OK</PrimaryButton>
     </Modal>
   );
 }

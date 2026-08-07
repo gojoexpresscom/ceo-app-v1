@@ -5,7 +5,7 @@ import {
   Search, Bell, Eye, Pencil, MoreHorizontal, Check, X, Loader2, Ban,
   Crown, TrendingUp, Wallet, Clock, UserCheck, UserX, Plus, Send,
   Download, Filter, ChevronLeft, ChevronRight, AlertCircle, Trash2,
-  KeyRound, Lock, Unlock, Power, RefreshCw, MessageSquare, ArrowLeft,
+  KeyRound, Lock, Unlock, Power, RefreshCw, MessageSquare, ArrowLeft, Menu,
 } from 'lucide-react';
 import { supabase, type Profile, type Transaction } from '@/lib/supabase';
 import { isAdminEmail, isOwnerEmail, type UserRole } from '@/lib/auth';
@@ -65,6 +65,7 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifications, setNotifications] = useState<{ id: string; text: string; read: boolean }[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Users tab state
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,10 +217,11 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
   const handleBanUser = async () => {
     if (!banUser) return;
     setLoading(true);
-    await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').update({
       is_banned: true, banned_at: new Date().toISOString(),
       ban_reason: 'Banned by admin',
     }).eq('user_id', banUser.user_id);
+    if (error) { showToast('Failed to ban user. Please try again.', 'error'); setLoading(false); return; }
     await logAdminAction('ban_user', 'user', banUser.user_id, 'Banned by admin');
     showToast(`User ${banUser.email} has been banned`, 'success');
     setBanUser(null);
@@ -231,11 +233,13 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
     if (!warnUser) return;
     setLoading(true);
     const newCount = (warnUser.warning_count || 0) + 1;
-    await supabase.from('user_warnings').insert({
+    const { error: wErr } = await supabase.from('user_warnings').insert({
       user_id: warnUser.user_id, warned_by: userId, warned_by_email: profile.email,
       reason: 'Warned by admin', warning_number: newCount,
     });
-    await supabase.from('profiles').update({ warning_count: newCount }).eq('user_id', warnUser.user_id);
+    if (wErr) { showToast('Failed to send warning. Please try again.', 'error'); setLoading(false); return; }
+    const { error: pErr } = await supabase.from('profiles').update({ warning_count: newCount }).eq('user_id', warnUser.user_id);
+    if (pErr) { showToast('Warning recorded but profile update failed.', 'error'); setLoading(false); return; }
     await logAdminAction('warn_user', 'user', warnUser.user_id, `Warning #${newCount}`);
     showToast(`Warning sent to ${warnUser.email}`, 'success');
     setWarnUser(null);
@@ -245,9 +249,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   const handleUnbanUser = async (u: Profile) => {
     setLoading(true);
-    await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').update({
       is_banned: false, banned_at: null, ban_reason: null,
     }).eq('user_id', u.user_id);
+    if (error) { showToast('Failed to unban user. Please try again.', 'error'); setLoading(false); return; }
     await logAdminAction('unban_user', 'user', u.user_id);
     showToast(`User ${u.email} has been unbanned`, 'success');
     setLoading(false);
@@ -265,7 +270,8 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
       updates.banned_at = editBanned ? new Date().toISOString() : null;
     }
     if (Object.keys(updates).length > 0) {
-      await supabase.from('profiles').update(updates).eq('user_id', editUser.user_id);
+      const { error } = await supabase.from('profiles').update(updates).eq('user_id', editUser.user_id);
+      if (error) { showToast('Failed to update profile. Please try again.', 'error'); setLoading(false); return; }
       await logAdminAction('edit_user', 'user', editUser.user_id, JSON.stringify(updates));
       showToast(`Profile updated for ${editUser.email}`, 'success');
     }
@@ -276,8 +282,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   const handleApproveKyc = async (kyc: KycSubmission) => {
     setLoading(true);
-    await supabase.from('user_verifications').update({ status: 'verified' }).eq('id', kyc.id);
-    await supabase.from('profiles').update({ kyc_status: 'VERIFIED' }).eq('user_id', kyc.user_id);
+    const { error: vErr } = await supabase.from('user_verifications').update({ status: 'verified' }).eq('id', kyc.id);
+    if (vErr) { showToast('Failed to update verification record.', 'error'); setLoading(false); return; }
+    const { error: pErr } = await supabase.from('profiles').update({ kyc_status: 'VERIFIED' }).eq('user_id', kyc.user_id);
+    if (pErr) { showToast('Verification updated but profile sync failed.', 'error'); setLoading(false); return; }
     await logAdminAction('approve_kyc', 'kyc', kyc.id, `Approved for ${kyc.full_name}`);
     showToast(`KYC approved for ${kyc.full_name}`, 'success');
     setLoading(false);
@@ -286,8 +294,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   const handleRejectKyc = async (kyc: KycSubmission, reason: string) => {
     setLoading(true);
-    await supabase.from('user_verifications').update({ status: 'rejected', rejection_reason: reason }).eq('id', kyc.id);
-    await supabase.from('profiles').update({ kyc_status: 'REJECTED' }).eq('user_id', kyc.user_id);
+    const { error: vErr } = await supabase.from('user_verifications').update({ status: 'rejected', rejection_reason: reason }).eq('id', kyc.id);
+    if (vErr) { showToast('Failed to update verification record.', 'error'); setLoading(false); return; }
+    const { error: pErr } = await supabase.from('profiles').update({ kyc_status: 'REJECTED' }).eq('user_id', kyc.user_id);
+    if (pErr) { showToast('Rejection recorded but profile sync failed.', 'error'); setLoading(false); return; }
     await logAdminAction('reject_kyc', 'kyc', kyc.id, `Rejected: ${reason}`);
     showToast(`KYC rejected for ${kyc.full_name}`, 'error');
     setLoading(false);
@@ -311,14 +321,16 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    await supabase.from('platform_announcements').delete().eq('id', id);
+    const { error } = await supabase.from('platform_announcements').delete().eq('id', id);
+    if (error) { showToast('Failed to delete announcement.', 'error'); return; }
     await logAdminAction('delete_announcement', 'announcement', id);
     showToast('Announcement deleted', 'success');
     loadAll();
   };
 
   const handleToggleAnnouncement = async (ann: Announcement) => {
-    await supabase.from('platform_announcements').update({ is_active: !ann.is_active }).eq('id', ann.id);
+    const { error } = await supabase.from('platform_announcements').update({ is_active: !ann.is_active }).eq('id', ann.id);
+    if (error) { showToast('Failed to toggle announcement.', 'error'); return; }
     showToast(`Announcement ${ann.is_active ? 'disabled' : 'enabled'}`, 'success');
     loadAll();
   };
@@ -327,17 +339,20 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
     if (!giveTitle.trim() || !giveAmount) { showToast('Title and amount are required', 'error'); return; }
     setLoading(true);
     const numCodes = parseInt(giveCodes) || 1;
+    let created = 0;
     for (let i = 0; i < numCodes; i++) {
       const code = `CEO-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-      await supabase.from('giveaway_campaigns').insert({
+      const { error } = await supabase.from('giveaway_campaigns').insert({
         creator_id: userId, creator_email: profile.email,
         title: giveTitle, description: giveDesc,
         reward_amount: parseFloat(giveAmount), reward_currency: giveCurrency,
         total_codes: 1, redeem_code: code,
       });
+      if (!error) created++;
     }
-    await logAdminAction('create_giveaway', 'giveaway', '', `${giveTitle} (${numCodes} codes)`);
-    showToast(`${numCodes} giveaway codes created`, 'success');
+    if (created === 0) { showToast('Failed to create giveaway codes.', 'error'); setLoading(false); return; }
+    await logAdminAction('create_giveaway', 'giveaway', '', `${giveTitle} (${created} codes)`);
+    showToast(`${created} giveaway codes created`, 'success');
     setGiveTitle(''); setGiveDesc(''); setGiveAmount(''); setGiveCodes('1');
     setShowCreateGiveaway(false);
     setLoading(false);
@@ -346,8 +361,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   const handleApproveMerchant = async (req: MerchantReq) => {
     setLoading(true);
-    await supabase.from('merchant_requests').update({ status: 'approved', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
-    await supabase.from('profiles').update({ p2p_merchant_status: 'APPROVED' }).eq('user_id', req.user_id);
+    const { error: rErr } = await supabase.from('merchant_requests').update({ status: 'approved', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
+    if (rErr) { showToast('Failed to approve merchant request.', 'error'); setLoading(false); return; }
+    const { error: pErr } = await supabase.from('profiles').update({ p2p_merchant_status: 'APPROVED' }).eq('user_id', req.user_id);
+    if (pErr) { showToast('Request approved but profile sync failed.', 'error'); setLoading(false); return; }
     await logAdminAction('approve_merchant', 'merchant', req.id, req.user_email);
     showToast(`Merchant approved for ${req.user_email}`, 'success');
     setLoading(false);
@@ -356,8 +373,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   const handleDenyMerchant = async (req: MerchantReq) => {
     setLoading(true);
-    await supabase.from('merchant_requests').update({ status: 'denied', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
-    await supabase.from('profiles').update({ p2p_merchant_status: 'REJECTED' }).eq('user_id', req.user_id);
+    const { error: rErr } = await supabase.from('merchant_requests').update({ status: 'denied', reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq('id', req.id);
+    if (rErr) { showToast('Failed to deny merchant request.', 'error'); setLoading(false); return; }
+    const { error: pErr } = await supabase.from('profiles').update({ p2p_merchant_status: 'REJECTED' }).eq('user_id', req.user_id);
+    if (pErr) { showToast('Request denied but profile sync failed.', 'error'); setLoading(false); return; }
     await logAdminAction('deny_merchant', 'merchant', req.id, req.user_email);
     showToast(`Merchant denied for ${req.user_email}`, 'error');
     setLoading(false);
@@ -370,17 +389,18 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
     const { error } = await supabase.from('support_messages').insert({
       ticket_id: viewTicket.id, user_id: userId, message: replyText,
     });
-    if (!error) {
-      await supabase.from('support_tickets').update({ status: 'in_progress', updated_at: new Date().toISOString() }).eq('id', viewTicket.id);
-      await logAdminAction('reply_ticket', 'ticket', viewTicket.id, viewTicket.subject);
-      showToast('Reply sent', 'success');
-      setReplyText('');
-    }
+    if (error) { showToast('Failed to send reply. Please try again.', 'error'); setLoading(false); return; }
+    const { error: tErr } = await supabase.from('support_tickets').update({ status: 'in_progress', updated_at: new Date().toISOString() }).eq('id', viewTicket.id);
+    if (tErr) { showToast('Reply sent but ticket status update failed.', 'error'); setLoading(false); return; }
+    await logAdminAction('reply_ticket', 'ticket', viewTicket.id, viewTicket.subject);
+    showToast('Reply sent', 'success');
+    setReplyText('');
     setLoading(false);
   };
 
   const handleCloseTicket = async (ticket: SupportTicket) => {
-    await supabase.from('support_tickets').update({ status: 'resolved', updated_at: new Date().toISOString() }).eq('id', ticket.id);
+    const { error } = await supabase.from('support_tickets').update({ status: 'resolved', updated_at: new Date().toISOString() }).eq('id', ticket.id);
+    if (error) { showToast('Failed to close ticket.', 'error'); return; }
     await logAdminAction('close_ticket', 'ticket', ticket.id, ticket.subject);
     showToast('Ticket resolved', 'success');
     setViewTicket(null);
@@ -528,8 +548,10 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
 
   return (
     <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] flex">
+      {/* ===== SIDEBAR OVERLAY (mobile) ===== */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       {/* ===== SIDEBAR ===== */}
-      <aside className="w-60 bg-[#181a20] border-r border-[#1e2026] flex flex-col fixed h-screen z-30">
+      <aside className={`w-60 bg-[#181a20] border-r border-[#1e2026] flex flex-col fixed h-screen z-40 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="px-5 py-4 border-b border-[#1e2026]">
           <div className="flex items-center gap-2">
             {isOwner ? <Crown className="w-5 h-5 text-amber-400" /> : <ShieldCheck className="w-5 h-5 text-amber-400" />}
@@ -539,7 +561,7 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
         </div>
         <nav className="flex-1 overflow-y-auto py-2">
           {sidebarTabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => { setTab(t.id); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors ${tab === t.id ? 'bg-[#f0b90b]/10 text-[#f0b90b] border-r-2 border-[#f0b90b]' : 'text-[#848e9c] hover:text-[#eaecef] hover:bg-[#1e2026]'}`}>
               <t.icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1 text-left">{t.label}</span>
@@ -557,10 +579,13 @@ export default function AdminPanelScreen({ userId, profile, onBack, onLogout }: 
       </aside>
 
       {/* ===== MAIN CONTENT ===== */}
-      <div className="flex-1 ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-[#181a20] border-b border-[#1e2026] px-6 py-3 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-4">
+        <header className="bg-[#181a20] border-b border-[#1e2026] px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-1.5 hover:bg-[#1e2026] rounded-lg">
+              <Menu className="w-5 h-5" />
+            </button>
             <h1 className="text-lg font-bold">{sidebarTabs.find(t => t.id === tab)?.label}</h1>
           </div>
           <div className="flex items-center gap-4">

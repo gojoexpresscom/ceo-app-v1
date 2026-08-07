@@ -38,7 +38,7 @@ export function PreferenceTab({
       <SectionCard title="Trading">
         <Row
           label="Benchmark Time Zone"
-          value={profile.benchmark_timezone}
+          value={profile.time_zone || 'UTC'}
           onClick={tzModal.openModal}
         />
       </SectionCard>
@@ -46,7 +46,7 @@ export function PreferenceTab({
       <SectionCard title="Withdrawal & Deposits">
         <Row
           label="Withdrawal Address"
-          value={profile.withdrawal_address || 'Not set'}
+          value={profile.web3_wallet_address || 'Not set'}
           onClick={withdrawModal.openModal}
         />
         <Row
@@ -55,12 +55,12 @@ export function PreferenceTab({
         />
         <Row
           label="Switch Routing"
-          value={profile.switch_routing}
+          value={profile.routing_mode || 'auto'}
           onClick={switchRoutingModal.openModal}
         />
         <Row
           label="Route Deposits To"
-          value={profile.route_deposits_to}
+          value={profile.deposit_to || 'funding'}
           onClick={routeDepositsModal.openModal}
         />
       </SectionCard>
@@ -79,26 +79,26 @@ export function PreferenceTab({
       {/* Modals */}
       <TimezoneModal
         modal={tzModal}
-        current={profile.benchmark_timezone}
+        current={profile.time_zone || 'UTC'}
         update={update}
         showToast={showToast}
       />
       <WithdrawalAddressModal
         modal={withdrawModal}
-        current={profile.withdrawal_address || ''}
+        current={profile.web3_wallet_address || ''}
         update={update}
         showToast={showToast}
       />
       <CryptoLimitsModal modal={cryptoLimitsModal} showToast={showToast} />
       <SwitchRoutingModal
         modal={switchRoutingModal}
-        current={profile.switch_routing}
+        current={profile.routing_mode || 'auto'}
         update={update}
         showToast={showToast}
       />
       <RouteDepositsModal
         modal={routeDepositsModal}
-        current={profile.route_deposits_to}
+        current={profile.deposit_to || 'funding'}
         update={update}
         showToast={showToast}
       />
@@ -124,7 +124,7 @@ function TimezoneModal({
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ benchmark_timezone: val });
+    const res = await update({ time_zone: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -175,7 +175,7 @@ function WithdrawalAddressModal({
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ withdrawal_address: val });
+    const res = await update({ web3_wallet_address: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -238,12 +238,16 @@ function SwitchRoutingModal({
   update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const options = ['Auto Routing Optimization', 'Manual Routing', 'Fastest Route'];
+  const options: { value: string; label: string }[] = [
+    { value: 'auto', label: 'Auto Routing Optimization' },
+    { value: 'manual', label: 'Manual Routing' },
+    { value: 'fastest', label: 'Fastest Route' },
+  ];
   const [val, setVal] = useState(current);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ switch_routing: val });
+    const res = await update({ routing_mode: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -261,14 +265,14 @@ function SwitchRoutingModal({
       <div className="mb-3 space-y-1">
         {options.map((o) => (
           <button
-            key={o}
-            onClick={() => setVal(o)}
+            key={o.value}
+            onClick={() => setVal(o.value)}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm ${
-              val === o ? 'bg-yellow-500/15 text-yellow-400' : 'bg-[#2b313a] text-gray-300'
+              val === o.value ? 'bg-yellow-500/15 text-yellow-400' : 'bg-[#2b313a] text-gray-300'
             }`}
           >
-            {o}
-            {val === o && <span className="text-xs">✓</span>}
+            {o.label}
+            {val === o.value && <span className="text-xs">✓</span>}
           </button>
         ))}
       </div>
@@ -290,12 +294,16 @@ function RouteDepositsModal({
   update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const options = ['Funding Account', 'Spot Account', 'Derivatives Account'];
+  const options: { value: string; label: string }[] = [
+    { value: 'funding', label: 'Funding Account' },
+    { value: 'spot', label: 'Spot Account' },
+    { value: 'derivatives', label: 'Derivatives Account' },
+  ];
   const [val, setVal] = useState(current);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true);
-    const res = await update({ route_deposits_to: val });
+    const res = await update({ deposit_to: val });
     setSaving(false);
     if (res.error) {
       showToast('Failed to update');
@@ -313,14 +321,14 @@ function RouteDepositsModal({
       <div className="mb-3 space-y-1">
         {options.map((o) => (
           <button
-            key={o}
-            onClick={() => setVal(o)}
+            key={o.value}
+            onClick={() => setVal(o.value)}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm ${
-              val === o ? 'bg-yellow-500/15 text-yellow-400' : 'bg-[#2b313a] text-gray-300'
+              val === o.value ? 'bg-yellow-500/15 text-yellow-400' : 'bg-[#2b313a] text-gray-300'
             }`}
           >
-            {o}
-            {val === o && <span className="text-xs">✓</span>}
+            {o.label}
+            {val === o.value && <span className="text-xs">✓</span>}
           </button>
         ))}
       </div>
@@ -333,15 +341,21 @@ function RouteDepositsModal({
 
 function NotificationModal({
   modal,
+  profile,
+  update,
   showToast,
 }: {
   modal: ReturnType<typeof useModalState>;
+  profile: UserProfile;
+  update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const [price, setPrice] = useState(true);
-  const [order, setOrder] = useState(true);
-  const [security, setSecurity] = useState(true);
-  const [promo, setPromo] = useState(false);
+  const items: { key: keyof UserProfile; label: string }[] = [
+    { key: 'notification_push', label: 'Push Notifications' },
+    { key: 'notification_trade', label: 'Trade Updates' },
+    { key: 'notification_security', label: 'Security Alerts' },
+    { key: 'notification_marketing', label: 'Promotions' },
+  ];
   return (
     <Modal open={modal.open} onClose={modal.closeModal} title="Notification Settings">
       <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
@@ -349,42 +363,17 @@ function NotificationModal({
         Choose which notifications you want to receive.
       </div>
       <div className="space-y-1">
-        {[
-          { label: 'Price Alerts', val: price, set: setPrice },
-          { label: 'Order Updates', val: order, set: setOrder },
-          { label: 'Security Alerts', val: security, set: setSecurity },
-          { label: 'Promotions', val: promo, set: setPromo },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center justify-between rounded-lg bg-[#2b313a] px-3 py-3"
-          >
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between rounded-lg bg-[#2b313a] px-3 py-3">
             <span className="text-sm text-gray-300">{item.label}</span>
-            <button
-              onClick={() => item.set(!item.val)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                item.val ? 'bg-yellow-500' : 'bg-[#3a4150]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                  item.val ? 'translate-x-[22px]' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+            <Toggle
+              checked={Boolean(profile[item.key])}
+              onChange={(v) => update({ [item.key]: v } as Partial<UserProfile>).then((r) => showToast(r.error ? 'Failed' : 'Updated'))}
+            />
           </div>
         ))}
       </div>
-      <div className="mt-4">
-        <PrimaryButton
-          onClick={() => {
-            showToast('Notification settings saved');
-            modal.closeModal();
-          }}
-        >
-          Save
-        </PrimaryButton>
-      </div>
+      <PrimaryButton onClick={modal.closeModal}>Done</PrimaryButton>
     </Modal>
   );
 }
