@@ -46,6 +46,8 @@ export default function PasskeysModal({ userId, email, onClose, onUpdate }: Prop
       await supabase.from('passkeys' as never).insert({ user_id: userId, credential_id: credId, name: deviceName });
       await supabase.from('profiles').update({ passkey_count: (passkeys.length + 1) }).eq('user_id', userId);
 
+      localStorage.setItem('ceo_passkey_email', email);
+
       const newKey: Passkey = { id: credId, name: deviceName, created_at: new Date().toISOString() };
       setPasskeys(prev => [...prev, newKey]);
       onUpdate(passkeys.length + 1);

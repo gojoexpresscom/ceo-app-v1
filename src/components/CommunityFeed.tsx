@@ -331,10 +331,8 @@ export default function CommunityFeed({ userId, profile }: Props) {
       (async () => {
         for (const post of mapped.slice(0, 10)) {
           try {
-            await supabase.from('post_views').insert({ post_id: post.id, user_id: userId });
             await supabase.rpc('increment_view_count', { post_id: post.id });
-            supabase.from('community_posts').update({ view_count: (post.view_count || 0) + 1 }).eq('id', post.id);
-          } catch { /* view already exists */ }
+          } catch { /* view increment failed */ }
         }
       })();
     }

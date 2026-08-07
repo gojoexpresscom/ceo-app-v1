@@ -351,6 +351,12 @@ export default function AuthScreen({ onAuth }: Props) {
     clearFeedback();
     setLoading(true);
     try {
+      if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+        setLoading(false);
+        setPasskeyError('Passkey is not supported on this device. Please use email/password login.');
+        return;
+      }
+
       const stored = localStorage.getItem('ceo_passkey_email');
       if (!stored) {
         setLoading(false);
@@ -358,71 +364,34 @@ export default function AuthScreen({ onAuth }: Props) {
         return;
       }
 
-      // Check if passkey is enabled for this account
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('user_id, passkey_count, email')
-        .eq('email', stored)
-        .maybeSingle();
+      // Trigger WebAuthn authentication — use conditional UI (discoverable credentials)
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          timeout: 60000,
+          userVerification: 'required',
+        },
+      }) as PublicKeyCredential | null;
 
-      if (!profileData || !profileData.passkey_count || profileData.passkey_count === 0) {
+      if (!credential) {
         setLoading(false);
-        setPasskeyError('Passkey is not enabled for this account. Activate it in Security Settings first.');
+        setPasskeyError('Passkey authentication cancelled.');
         return;
       }
 
-      // Fetch stored credential IDs for this user
-      const { data: passkeyData } = await supabase
-        .from('passkeys')
-        .select('credential_id')
-        .eq('user_id', profileData.user_id);
-
-      const credentialIds = (passkeyData || []).map((p: { credential_id: string }) => {
-        const raw = atob(p.credential_id);
-        const arr = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-        return arr;
+      // Biometric verified — sign in with Supabase using stored email + password-less OTP
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: stored,
+        options: { shouldCreateUser: false },
       });
-
-      if (credentialIds.length === 0) {
+      if (otpError) {
         setLoading(false);
-        setPasskeyError('No passkey credentials found. Please use email/password login.');
+        setPasskeyError('Passkey verified but login failed. Please use email login.');
         return;
       }
-
-      // Trigger WebAuthn authentication with stored credential IDs
-      if (typeof window !== 'undefined' && window.PublicKeyCredential) {
-        const challenge = crypto.getRandomValues(new Uint8Array(32));
-        const credential = await navigator.credentials.get({
-          publicKey: {
-            challenge,
-            timeout: 60000,
-            userVerification: 'required',
-            allowCredentials: credentialIds.map(id => ({
-              type: 'public-key' as const,
-              id,
-            })),
-          },
-        }) as PublicKeyCredential | null;
-
-        if (credential) {
-          // Biometric verified — sign in with Supabase using stored email
-          const { error: otpError } = await supabase.auth.signInWithOtp({
-            email: stored,
-            options: { shouldCreateUser: false },
-          });
-          if (otpError) {
-            setLoading(false);
-            setPasskeyError('Passkey verified but login failed. Please use email login.');
-            return;
-          }
-          setMessage('Passkey authentication successful! Check your email for login link.');
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-        setPasskeyError('Passkey is not enabled. Please log in with email/password and activate Passkey in Security Settings first.');
-      }
+      setMessage('Passkey verified! A login link has been sent to your email.');
+      setLoading(false);
     } catch {
       setLoading(false);
       setPasskeyError('Passkey authentication failed. Please try again or use password login.');
