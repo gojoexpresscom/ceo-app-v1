@@ -276,21 +276,18 @@ export default function KYCModal({ onClose, userId, onComplete }: Props2) {
         backUrl = supabase.storage.from('post-media').getPublicUrl(backPath).data.publicUrl;
       }
       const dobStr = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`;
-      if (result.verified) {
-        await supabase.from('user_verifications').upsert({
-          user_id: userId, full_name: fullName, document_type: docTypeStr,
-          document_number: docNumber, date_of_birth: dobStr,
-          front_photo_url: frontUrl, back_photo_url: backUrl,
-          status: 'pending', tier_level: 2, tier2_completed: true,
-        }, { onConflict: 'user_id' });
-        await supabase.from('profiles').update({ kyc_status: 'PENDING_VERIFICATION', kyc_full_name: fullName, kyc_submitted_at: new Date().toISOString() }).eq('user_id', userId);
-        setOcrResult('Documents submitted for 24h AI review.');
-        setCurrentTier(2);
-        setSubmitted(true);
-        onComplete('pending');
-      } else {
-        await rejectKyc(result.reason || 'Document verification failed.');
-      }
+      // Always submit as pending for admin review — admin approves or rejects manually
+      await supabase.from('user_verifications').upsert({
+        user_id: userId, full_name: fullName, document_type: docTypeStr,
+        document_number: docNumber, date_of_birth: dobStr,
+        front_photo_url: frontUrl, back_photo_url: backUrl,
+        status: 'pending', tier_level: 2, tier2_completed: true,
+      }, { onConflict: 'user_id' });
+      await supabase.from('profiles').update({ kyc_status: 'PENDING_VERIFICATION', kyc_full_name: fullName, kyc_submitted_at: new Date().toISOString() }).eq('user_id', userId);
+      setOcrResult('Documents submitted. An admin will review your submission shortly.');
+      setCurrentTier(2);
+      setSubmitted(true);
+      onComplete('pending');
     } catch {
       await rejectKyc('Verification failed due to a technical error. Please try again.');
     }
