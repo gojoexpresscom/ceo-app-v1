@@ -15,7 +15,7 @@ import {
 import type { UserProfile } from '@/types';
 import { Row, Toggle, SectionCard, Modal, Input, PrimaryButton, useModalState, StatusBadge } from './ui';
 import { supabase } from '@/lib/supabase';
-import { generateTotpSecret, verifyTotp } from '@/lib/totp';
+import { generateTOTPSecret, verifyTOTP, getOtpAuthURI } from '@/lib/totp';
 
 type UpdateFn = (patch: Partial<UserProfile>) => Promise<{ error: string | null }>;
 
@@ -283,9 +283,9 @@ function Google2FAModal({
   const [saving, setSaving] = useState(false);
 
   const startSetup = () => {
-    const newSecret = generateTotpSecret();
+    const newSecret = generateTOTPSecret();
     setSecret(newSecret);
-    setQrUrl(`otpauth://totp/CEO-Exchange:${profile.email}?secret=${newSecret}&issuer=CEO-Exchange`);
+    setQrUrl(getOtpAuthURI(newSecret, profile.email));
     setStep('verify');
   };
 
@@ -294,7 +294,7 @@ function Google2FAModal({
       showToast('Enter a 6-digit code');
       return;
     }
-    if (!verifyTotp(secret, code)) {
+    if (!verifyTOTP(secret, code)) {
       showToast('Incorrect code. Please try again.');
       return;
     }
@@ -315,7 +315,7 @@ function Google2FAModal({
       showToast('Enter a 6-digit code');
       return;
     }
-    if (!profile.totp_secret || !verifyTotp(profile.totp_secret, code)) {
+    if (!profile.totp_secret || !verifyTOTP(profile.totp_secret, code)) {
       showToast('Incorrect code. Please try again.');
       return;
     }

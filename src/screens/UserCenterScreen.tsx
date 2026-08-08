@@ -1,52 +1,54 @@
 import { useState } from 'react';
-import { 
-  ArrowLeft, User, Shield, Key, Bell, Smartphone, 
-  Mail, Lock, CheckCircle2, LogOut, ChevronRight, 
-  Globe, Moon, Sun, DollarSign, HelpCircle, MessageSquare, 
-  Info, HardDrive, Star, ShieldAlert, SmartphoneNfc, FileText, 
-  Users, Share2, Wallet, RefreshCw, Sliders, X, Check
+import {
+  ArrowLeft, User, Shield, Bell,
+  Mail, CheckCircle2, LogOut, ChevronRight,
+  Globe, Moon, DollarSign, MessageSquare,
+  FileText, Star, Users, Share2, X, Check,
 } from 'lucide-react';
 import { type Profile } from '@/lib/supabase';
+import type { UserProfile, UpdateProfileFn } from '@/types';
+import { SecurityTab } from '@/components/user/SecurityTab';
+import { PreferenceTab } from '@/components/user/PreferenceTab';
+import { GeneralTab } from '@/components/user/GeneralTab';
+import { TELEGRAM_COMMUNITY } from '@/config/constants';
 
 type Props = {
   userId: string;
   profile: Profile;
   onBack: () => void;
   onLogout: () => void;
+  onProfileUpdate: (updates: Partial<Profile>) => void;
 };
 
-type ActiveModal = 
-  | null 
-  | 'nickname' 
-  | 'identity' 
-  | 'vip' 
-  | 'subaccount' 
-  | 'linkAccount' 
-  | 'passkeys' 
-  | 'antiPhishing' 
-  | 'fundPassword' 
-  | 'transactionApproval' 
-  | 'withdrawalSecurity' 
-  | 'changePassword' 
-  | 'trustedDevices' 
-  | 'appLock' 
-  | 'withdrawalAddress' 
-  | 'limits' 
-  | 'language' 
-  | 'currency' 
-  | 'colorTheme' 
-  | 'help' 
-  | 'support' 
-  | 'feedback' 
-  | 'about' 
+type ActiveModal =
+  | null
+  | 'nickname'
+  | 'identity'
+  | 'vip'
+  | 'subaccount'
+  | 'linkAccount'
+  | 'passkeys'
+  | 'antiPhishing'
+  | 'fundPassword'
+  | 'transactionApproval'
+  | 'withdrawalSecurity'
+  | 'changePassword'
+  | 'trustedDevices'
+  | 'appLock'
+  | 'withdrawalAddress'
+  | 'limits'
+  | 'language'
+  | 'currency'
+  | 'colorTheme'
+  | 'help'
+  | 'support'
+  | 'feedback'
+  | 'about'
   | 'storage';
 
-export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
+export default function UserCenterScreen({ profile, onBack, onLogout, onProfileUpdate }: Props) {
   const [mainTab, setMainTab] = useState<'info' | 'security' | 'preference' | 'general'>('info');
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
-  
-  const [google2fa, setGoogle2fa] = useState(true);
-  const [alwaysOnLock, setAlwaysOnLock] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -55,8 +57,13 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const displayName = profile.full_name || profile.email?.split('@')[0] || 'goj***@****';
-  const displayUid = profile.id ? profile.id.slice(0, 9) : '231341794';
+  const update: UpdateProfileFn = async (patch) => {
+    onProfileUpdate(patch);
+    return { error: null };
+  };
+
+  const displayName = profile.nickname || profile.email?.split('@')[0] || 'goj***@****';
+  const displayUid = profile.uid || (profile.id ? profile.id.slice(0, 9) : '231341794');
 
   return (
     <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] flex flex-col pb-12 select-none">
@@ -117,7 +124,7 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
         ))}
       </div>
 
-      {/* Tab Content Panels */}
+      {/* Tab Content */}
       <div className="flex-1 px-4 py-2 flex flex-col gap-1 max-w-lg mx-auto w-full">
         {mainTab === 'info' && (
           <div className="flex flex-col">
@@ -129,87 +136,30 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
             <MenuItem icon={<DollarSign className="w-5 h-5 text-[#848e9c]" />} label="My Fee Rates" onClick={() => showToast('Standard tier active')} />
             <MenuItem icon={<Users className="w-5 h-5 text-[#848e9c]" />} label="Subaccount" onClick={() => setActiveModal('subaccount')} />
             <MenuItem icon={<Share2 className="w-5 h-5 text-[#848e9c]" />} label="Link Account" onClick={() => setActiveModal('linkAccount')} />
-            <MenuItem icon={<MessageSquare className="w-5 h-5 text-[#848e9c]" />} label="Join Our Community" onClick={() => window.open('https://t.me', '_blank')} />
+            <MenuItem icon={<MessageSquare className="w-5 h-5 text-[#848e9c]" />} label="Join Our Community" onClick={() => window.open(TELEGRAM_COMMUNITY, '_blank')} />
           </div>
         )}
 
         {mainTab === 'security' && (
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Basic Protect</p>
-              <MenuItem icon={<Mail className="w-5 h-5 text-[#848e9c]" />} label="Email" value={`${displayName.slice(0, 3)}***@****`} />
-              <MenuItem icon={<Smartphone className="w-5 h-5 text-[#848e9c]" />} label="Mobile" value="90****016" />
-              <div className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors">
-                <div className="flex items-center gap-3">
-                  <Shield className="w-5 h-5 text-[#f0b90b]" />
-                  <span className="text-sm font-medium text-[#eaecef]">Google 2FA Authentication</span>
-                </div>
-                <input 
-                  type="checkbox" 
-                  checked={google2fa} 
-                  onChange={() => { setGoogle2fa(!google2fa); showToast(google2fa ? '2FA Disabled' : '2FA Enabled'); }}
-                  className="w-5 h-5 accent-[#f0b90b] cursor-pointer rounded" 
-                />
-              </div>
-              <MenuItem icon={<Key className="w-5 h-5 text-[#848e9c]" />} label="Passkeys" onClick={() => setActiveModal('passkeys')} />
-              <MenuItem icon={<Lock className="w-5 h-5 text-[#848e9c]" />} label="Anti-phishing Code" value="469339" onClick={() => setActiveModal('antiPhishing')} />
-            </div>
-
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Advanced Protect</p>
-              <MenuItem icon={<ShieldAlert className="w-5 h-5 text-amber-400" />} label="Fund Password" value="Not Setup" valueColor="text-amber-400" onClick={() => setActiveModal('fundPassword')} />
-              <MenuItem icon={<CheckCircle2 className="w-5 h-5 text-[#848e9c]" />} label="Secure Transaction Approval" onClick={() => setActiveModal('transactionApproval')} />
-            </div>
-
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Scenario-based protection</p>
-              <MenuItem icon={<Wallet className="w-5 h-5 text-[#848e9c]" />} label="Withdrawal Security" onClick={() => setActiveModal('withdrawalSecurity')} />
-            </div>
-
-            <div>
-              <p className="text-xs text-[#848e9c] font-bold uppercase tracking-wider px-2 py-2">Account access</p>
-              <MenuItem icon={<Key className="w-5 h-5 text-[#848e9c]" />} label="Change Password" onClick={() => setActiveModal('changePassword')} />
-              <MenuItem icon={<SmartphoneNfc className="w-5 h-5 text-[#848e9c]" />} label="Trusted Devices" onClick={() => setActiveModal('trustedDevices')} />
-              <MenuItem icon={<Lock className="w-5 h-5 text-[#848e9c]" />} label="App Lock" onClick={() => setActiveModal('appLock')} />
-            </div>
+          <div className="pt-2">
+            <SecurityTab profile={profile as UserProfile} update={update} />
           </div>
         )}
 
         {mainTab === 'preference' && (
-          <div className="flex flex-col">
-            <MenuItem icon={<Bell className="w-5 h-5 text-[#848e9c]" />} label="Benchmark Time Zone" value="Last 24 hours" onClick={() => showToast('Time zone settings')} />
-            <MenuItem icon={<Wallet className="w-5 h-5 text-[#848e9c]" />} label="Withdrawal Address" onClick={() => setActiveModal('withdrawalAddress')} />
-            <MenuItem icon={<Sliders className="w-5 h-5 text-[#848e9c]" />} label="Manage Crypto Withdrawal Limits" onClick={() => setActiveModal('limits')} />
-            <MenuItem icon={<RefreshCw className="w-5 h-5 text-[#848e9c]" />} label="Switch routing" value="Auto Routing Optimization" onClick={() => showToast('Routing active')} />
+          <div className="pt-2">
+            <PreferenceTab profile={profile as UserProfile} update={update} />
           </div>
         )}
 
         {mainTab === 'general' && (
-          <div className="flex flex-col">
-            <MenuItem icon={<Globe className="w-5 h-5 text-[#848e9c]" />} label="Language" value="English" onClick={() => setActiveModal('language')} />
-            <MenuItem icon={<DollarSign className="w-5 h-5 text-[#848e9c]" />} label="Currency Display" value="USD" onClick={() => setActiveModal('currency')} />
-            <MenuItem icon={<Sun className="w-5 h-5 text-[#848e9c]" />} label="Color Theme" value="Dark Mode" onClick={() => setActiveModal('colorTheme')} />
-            <div className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors">
-              <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-[#848e9c]" />
-                <span className="text-sm font-medium text-[#eaecef]">Always on (no screen lock)</span>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={alwaysOnLock} 
-                onChange={() => setAlwaysOnLock(!alwaysOnLock)}
-                className="w-5 h-5 accent-[#f0b90b] cursor-pointer rounded" 
-              />
-            </div>
-            <MenuItem icon={<HelpCircle className="w-5 h-5 text-[#848e9c]" />} label="Help Center" onClick={() => setActiveModal('help')} />
-            <MenuItem icon={<MessageSquare className="w-5 h-5 text-[#848e9c]" />} label="Contact Support" onClick={() => setActiveModal('support')} />
-            <MenuItem icon={<Info className="w-5 h-5 text-[#848e9c]" />} label="About Us" onClick={() => setActiveModal('about')} />
-            <MenuItem icon={<HardDrive className="w-5 h-5 text-[#848e9c]" />} label="Storage management" value="14.2 MB" onClick={() => setActiveModal('storage')} />
+          <div className="pt-2">
+            <GeneralTab profile={profile as UserProfile} update={update} />
           </div>
         )}
 
         <div className="mt-8 px-2">
-          <button 
+          <button
             onClick={onLogout}
             className="w-full bg-[#1e2026] hover:bg-[#2b2f36] border border-[#2b2f36] text-[#eaecef] font-bold py-4 rounded-2xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xl"
           >
@@ -218,7 +168,7 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
         </div>
       </div>
 
-      {/* Pop-up Modals */}
+      {/* Placeholder modals for My Info tab items not yet wired to real components */}
       {activeModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#1e2026] border border-[#2b2f36] rounded-3xl w-full max-w-sm p-6 relative shadow-2xl">
@@ -229,14 +179,14 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
               {activeModal.replace(/([A-Z])/g, ' $1')}
             </h3>
             <p className="text-xs text-[#848e9c] mb-4">Configure your security and account preferences instantly.</p>
-            <input 
-              type="text" 
-              placeholder="Enter details..." 
+            <input
+              type="text"
+              placeholder="Enter details..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl px-3 py-3 text-sm text-[#eaecef] outline-none mb-4"
             />
-            <button 
+            <button
               onClick={() => { showToast('Updated successfully!'); setActiveModal(null); setInputValue(''); }}
               className="w-full bg-[#f0b90b] text-black font-bold py-3 rounded-xl text-sm"
             >
@@ -249,10 +199,10 @@ export default function UserCenterScreen({ profile, onBack, onLogout }: Props) {
   );
 }
 
-function MenuItem({ 
-  icon, label, value, valueColor = 'text-[#848e9c]', copyable, onCopy, onClick 
-}: { 
-  icon: React.ReactNode; label: string; value?: string; valueColor?: string; copyable?: boolean; onCopy?: () => void; onClick?: () => void; 
+function MenuItem({
+  icon, label, value, valueColor = 'text-[#848e9c]', copyable, onCopy, onClick,
+}: {
+  icon: React.ReactNode; label: string; value?: string; valueColor?: string; copyable?: boolean; onCopy?: () => void; onClick?: () => void;
 }) {
   return (
     <div onClick={onClick} className="flex items-center justify-between py-3.5 px-2 hover:bg-[#1e2026]/40 rounded-2xl transition-colors cursor-pointer group">
@@ -267,5 +217,4 @@ function MenuItem({
       </div>
     </div>
   );
-              }
-              
+}
