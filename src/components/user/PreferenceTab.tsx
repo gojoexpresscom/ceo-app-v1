@@ -102,8 +102,8 @@ export function PreferenceTab({
         update={update}
         showToast={showToast}
       />
-      <NotificationModal modal={notifModal} showToast={showToast} />
-      <EmailSubModal modal={emailSubModal} showToast={showToast} />
+      <NotificationModal modal={notifModal} profile={profile} update={update} showToast={showToast} />
+      <EmailSubModal modal={emailSubModal} profile={profile} update={update} showToast={showToast} />
     </div>
   );
 }
@@ -380,14 +380,20 @@ function NotificationModal({
 
 function EmailSubModal({
   modal,
+  profile,
+  update,
   showToast,
 }: {
   modal: ReturnType<typeof useModalState>;
+  profile: UserProfile;
+  update: UpdateFn;
   showToast: (m: string) => void;
 }) {
-  const [news, setNews] = useState(true);
-  const [product, setProduct] = useState(false);
-  const [market, setMarket] = useState(true);
+  const items: { key: keyof UserProfile; label: string }[] = [
+    { key: 'email_marketing', label: 'Newsletter' },
+    { key: 'email_trade', label: 'Product Updates' },
+    { key: 'email_security', label: 'Security Alerts' },
+  ];
   return (
     <Modal open={modal.open} onClose={modal.closeModal} title="Email Subscriptions">
       <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
@@ -395,41 +401,17 @@ function EmailSubModal({
         Manage which emails you'd like to receive.
       </div>
       <div className="space-y-1">
-        {[
-          { label: 'Newsletter', val: news, set: setNews },
-          { label: 'Product Updates', val: product, set: setProduct },
-          { label: 'Market Analysis', val: market, set: setMarket },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center justify-between rounded-lg bg-[#2b313a] px-3 py-3"
-          >
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between rounded-lg bg-[#2b313a] px-3 py-3">
             <span className="text-sm text-gray-300">{item.label}</span>
-            <button
-              onClick={() => item.set(!item.val)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                item.val ? 'bg-yellow-500' : 'bg-[#3a4150]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                  item.val ? 'translate-x-[22px]' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+            <Toggle
+              checked={Boolean(profile[item.key])}
+              onChange={(v) => update({ [item.key]: v } as Partial<UserProfile>).then((r) => showToast(r.error ? 'Failed' : 'Updated'))}
+            />
           </div>
         ))}
       </div>
-      <div className="mt-4">
-        <PrimaryButton
-          onClick={() => {
-            showToast('Email subscriptions saved');
-            modal.closeModal();
-          }}
-        >
-          Save
-        </PrimaryButton>
-      </div>
+      <PrimaryButton onClick={modal.closeModal}>Done</PrimaryButton>
     </Modal>
   );
 }
